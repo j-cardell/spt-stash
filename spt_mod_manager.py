@@ -436,40 +436,30 @@ def detect_cpu_core_allocation():
 def detect_gpu_hardware():
     vendor = "UNKNOWN"
     gpu_name = "Unknown Graphics Card"
-    try:
-        lspci_bin = shutil.which("lspci") or "/usr/bin/lspci"
-        if Path(lspci_bin).exists():
-            res = subprocess.run([lspci_bin], capture_output=True, text=True)  # nosec B603, B607
-        lines = [line for line in res.stdout.splitlines() if any(k in line.lower() for k in ["vga", "3d", "display"])]
-        if lines:
-            target = lines[0]
-            if "nvidia" in target.lower():
-                vendor = "NVIDIA"
-                gpu_name = target.split(":")[-1].strip()
-            elif "amd" in target.lower() or "radeon" in target.lower() or "advanced micro devices" in target.lower():
-                vendor = "AMD"
-                gpu_name = target.split(":")[-1].strip()
-            elif "intel" in target.lower():
-                vendor = "INTEL"
-                gpu_name = target.split(":")[-1].strip()
-    except Exception:
-        pass
 
-    if vendor == "UNKNOWN":
-        for vendor_file in glob.glob("/sys/class/drm/card*/device/vendor"):
-            try:
-                val = Path(vendor_file).read_text().strip()
-                if val == "0x1002":
-                    vendor = "AMD"
-                    gpu_name = "AMD Radeon GPU"
-                elif val == "0x10de":
-                    vendor = "NVIDIA"
-                    gpu_name = "NVIDIA GeForce GPU"
-                elif val == "0x8086":
-                    vendor = "INTEL"
-                    gpu_name = "Intel Graphics"
-            except Exception:
-                pass
+    vendor_names = {
+        "0x1002": ("AMD", "AMD Radeon Graphics"),
+        "0x10de": ("NVIDIA", "NVIDIA GeForce GPU"),
+        "0x8086": ("INTEL", "Intel Graphics")
+    }
+
+    for vendor_file in sorted(glob.glob("/sys/class/drm/card*/device/vendor")):
+        try:
+            v_id = Path(vendor_file).read_text(encoding="utf-8").strip().lower()
+            if v_id in vendor_names:
+                v_info = vendor_names[v_id]
+                card_dir = Path(vendor_file).parent
+                vram_file = card_dir / "mem_info_vram_total"
+                t_mb = 0
+                if vram_file.exists():
+                    t_mb = int(vram_file.read_text(encoding="utf-8").strip()) / 1024 / 1024
+                
+                # Prioritize discrete GPU over integrated
+                if t_mb > 2000 or vendor == "UNKNOWN":
+                    vendor, base_name = v_info
+                    gpu_name = f"{base_name} ({t_mb/1024:.0f}GB VRAM)" if t_mb > 0 else base_name
+        except Exception:
+            pass
 
     return {
         "vendor": vendor,
