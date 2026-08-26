@@ -62,7 +62,6 @@ jobs:
 
           # Create top-level AppDir symlinks required by appimagetool
           cp AppDir/usr/share/applications/spt-stash.desktop AppDir/spt-stash.desktop
-          cp AppDir/spt-stash.svg AppDir/spt-stash.svg
           cp AppDir/spt-stash.svg AppDir/.DirIcon
 
           # Create AppRun Entrypoint Script
