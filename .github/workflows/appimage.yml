@@ -23,7 +23,7 @@ jobs:
       - name: Install Build & System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y p7zip-full libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 wget
+          sudo apt-get install -y p7zip-full libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 wget squashfs-tools
           pip install --upgrade pip
           pip install PySide6 pyinstaller
 
@@ -76,7 +76,7 @@ jobs:
         env:
           ARCH: x86_64
         run: |
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir SPT_Stash-x86_64.AppImage
 
