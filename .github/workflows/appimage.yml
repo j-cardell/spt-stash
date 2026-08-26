@@ -60,6 +60,11 @@ jobs:
           EOF
           cp AppDir/spt-stash.svg AppDir/usr/share/icons/hicolor/256x256/apps/spt-stash.svg
 
+          # Create top-level AppDir symlinks required by appimagetool
+          cp AppDir/usr/share/applications/spt-stash.desktop AppDir/spt-stash.desktop
+          cp AppDir/spt-stash.svg AppDir/spt-stash.svg
+          cp AppDir/spt-stash.svg AppDir/.DirIcon
+
           # Create AppRun Entrypoint Script
           cat << 'EOF' > AppDir/AppRun
           #!/bin/sh
@@ -69,6 +74,8 @@ jobs:
           chmod +x AppDir/AppRun
 
       - name: Build AppImage Executable
+        env:
+          ARCH: x86_64
         run: |
           wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
@@ -84,6 +91,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: SPT_Stash-x86_64.AppImage
+          files: |
+            SPT_Stash-x86_64.AppImage
+            dist/spt-stash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
