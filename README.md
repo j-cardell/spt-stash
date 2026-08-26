@@ -78,7 +78,15 @@ chmod +x SPT_Stash-x86_64.AppImage
 ./SPT_Stash-x86_64.AppImage
 ```
 
-### Option 2: Run from Source
+### Option 2: Pre-compiled Standalone Linux Binary (`spt-stash`)
+Download the standalone executable `spt-stash` binary from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases) (no AppImage wrapper or Python environment required):
+
+```bash
+chmod +x spt-stash
+./spt-stash
+```
+
+### Option 3: Run from Source
 Requires Python 3.10+ and PySide6:
 
 ```bash

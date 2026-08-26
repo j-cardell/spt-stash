@@ -1151,10 +1151,29 @@ class SettingsDialog(QDialog):
             self.txt_launcher.setText(file_path)
 
     def save_settings(self):
-        self.cfg["spt_path"] = self.txt_spt.text().strip()
-        self.cfg["staged_dir"] = self.txt_staged.text().strip()
-        self.cfg["server_script"] = self.txt_server.text().strip()
-        self.cfg["launcher_script"] = self.txt_launcher.text().strip()
+        spt = self.txt_spt.text().strip()
+        staged = self.txt_staged.text().strip()
+        server = self.txt_server.text().strip()
+        launcher = self.txt_launcher.text().strip()
+
+        if not spt or not staged or not server or not launcher:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("⚠️ Missing Required Paths")
+            msg.setText("<b>All path settings fields are required.</b><br><br>Please ensure no path field is left blank before saving settings.")
+            msg.setStyleSheet("""
+                QMessageBox { background-color: #1e1e2e; color: #cdd6f4; }
+                QLabel { color: #cdd6f4; min-width: 380px; font-size: 13px; }
+                QPushButton { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 6px 14px; border-radius: 6px; }
+                QPushButton:hover { background-color: #45475a; }
+            """)
+            msg.exec()
+            return
+
+        self.cfg["spt_path"] = spt
+        self.cfg["staged_dir"] = staged
+        self.cfg["server_script"] = server
+        self.cfg["launcher_script"] = launcher
         save_config(self.cfg)
         self.accept()
 
@@ -3384,6 +3403,12 @@ class SPTModManagerWindow(QMainWindow):
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle(f"⚠️ {script_name} Not Found")
+        msg.setStyleSheet("""
+            QMessageBox { background-color: #1e1e2e; color: #cdd6f4; }
+            QLabel { color: #cdd6f4; min-width: 420px; font-size: 13px; }
+            QPushButton { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 6px 14px; border-radius: 6px; }
+            QPushButton:hover { background-color: #45475a; }
+        """)
         msg.setText(
             f"<b>Could not find '{script_name}'</b> at:<br><code>{target_path}</code><br><br>"
             f"Please verify your SPT installation folder in <b>Settings</b>.<br><br>"
