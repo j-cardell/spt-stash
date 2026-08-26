@@ -1472,16 +1472,19 @@ class SPTModManagerWindow(QMainWindow):
         self.tab_presets = QWidget()
         self.tab_browse = QWidget()
         self.tab_installer = QWidget()
+        self.tab_performance = QWidget()
 
         self.tabs.addTab(self.tab_installed, "Installed Mods")
         self.tabs.addTab(self.tab_presets, "🎒 Presets && Manifests")
         self.tabs.addTab(self.tab_browse, "Browse sp-mod.com (Forge)")
         self.tabs.addTab(self.tab_installer, "Install Local Mod Archive")
+        self.tabs.addTab(self.tab_performance, "⚡ Linux Performance")
 
         self.setup_installed_tab()
         self.setup_presets_tab()
         self.setup_browse_tab()
         self.setup_installer_tab()
+        self.setup_performance_tab()
 
     # ------------------ Installed Mods Tab ------------------
     def setup_installed_tab(self):
@@ -3381,6 +3384,166 @@ class SPTModManagerWindow(QMainWindow):
         else:
             QMessageBox.critical(self, "Error", message)
             self.lbl_install_status.setText("❌ " + message)
+
+    # ------------------ Linux Performance Tab ------------------
+    def setup_performance_tab(self):
+        layout = QVBoxLayout(self.tab_performance)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header Title
+        lbl_title = QLabel("⚡ Linux Performance & Game Launch Tuning")
+        lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #89b4fa; padding-bottom: 2px;")
+        lbl_sub = QLabel("Configure driver flags, MangoHud overlays, AMD FSR 4 upscaling, DXVK async shader compilation, and CPU core isolation for Single-Player Tarkov.")
+        lbl_sub.setStyleSheet("color: #a6adc8; font-size: 12px;")
+        lbl_sub.setWordWrap(True)
+        layout.addWidget(lbl_title)
+        layout.addWidget(lbl_sub)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        scroll_content = QWidget()
+        form_layout = QVBoxLayout(scroll_content)
+        form_layout.setSpacing(14)
+
+        cfg = load_config()
+
+        # Card 1: MangoHud
+        card_mangohud = QGroupBox("📊 MangoHud Performance Overlay")
+        card_mangohud.setStyleSheet("""
+            QGroupBox { font-weight: bold; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; margin-top: 6px; padding-top: 14px; background-color: #1e1e2e; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #89b4fa; }
+        """)
+        m_lay = QVBoxLayout(card_mangohud)
+        self.chk_perf_mangohud = QCheckBox("Enable MangoHud Performance Overlay (MANGOHUD=1)")
+        self.chk_perf_mangohud.setChecked(cfg.get("enable_mangohud", True))
+        self.chk_perf_mangohud.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 13px; }")
+        m_help = QLabel("<small style='color: #a6adc8;'>Displays real-time FPS, frametime graphs, CPU/GPU temperatures, and VRAM usage over Tarkov.</small>")
+        m_help.setWordWrap(True)
+        m_lay.addWidget(self.chk_perf_mangohud)
+        m_lay.addWidget(m_help)
+        form_layout.addWidget(card_mangohud)
+
+        # Card 2: FSR 4 Upgrade
+        card_fsr4 = QGroupBox("⚡ AMD FSR 4 Upscaling Upgrade")
+        card_fsr4.setStyleSheet("""
+            QGroupBox { font-weight: bold; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; margin-top: 6px; padding-top: 14px; background-color: #1e1e2e; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #a6e3a1; }
+        """)
+        f_lay = QVBoxLayout(card_fsr4)
+        self.chk_perf_fsr4 = QCheckBox("Enable Proton FSR 4 Upgrade (PROTON_FSR4_UPGRADE=1)")
+        self.chk_perf_fsr4.setChecked(cfg.get("enable_fsr4", True))
+        self.chk_perf_fsr4.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 13px; }")
+        f_help = QLabel("<small style='color: #a6adc8;'>Automatically upgrades Tarkov's in-game upscaler to FSR 4 using Proton-GE / Valve Proton.</small>")
+        f_help.setWordWrap(True)
+        f_lay.addWidget(self.chk_perf_fsr4)
+        f_lay.addWidget(f_help)
+        form_layout.addWidget(card_fsr4)
+
+        # Card 3: DXVK Async
+        card_dxvk = QGroupBox("🚀 DXVK Async & Shader Caching")
+        card_dxvk.setStyleSheet("""
+            QGroupBox { font-weight: bold; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; margin-top: 6px; padding-top: 14px; background-color: #1e1e2e; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #f9e2af; }
+        """)
+        d_lay = QVBoxLayout(card_dxvk)
+        self.chk_perf_dxvk = QCheckBox("Enable DXVK Async & State Cache (DXVK_ASYNC=1, RADV_PERFTEST=gpl)")
+        self.chk_perf_dxvk.setChecked(cfg.get("enable_dxvk_async", True))
+        self.chk_perf_dxvk.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 13px; }")
+        d_help = QLabel("<small style='color: #a6adc8;'>Compiles graphics shaders asynchronously in background threads to eliminate scope-in and firefight micro-stutters.</small>")
+        d_help.setWordWrap(True)
+        d_lay.addWidget(self.chk_perf_dxvk)
+        d_lay.addWidget(d_help)
+        form_layout.addWidget(card_dxvk)
+
+        # Card 4: CPU Core Isolation
+        card_cpu = QGroupBox("🧠 CPU Core Isolation (taskset)")
+        card_cpu.setStyleSheet("""
+            QGroupBox { font-weight: bold; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; margin-top: 6px; padding-top: 14px; background-color: #1e1e2e; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #cba6f7; }
+        """)
+        c_lay = QVBoxLayout(card_cpu)
+        
+        cores_layout = QHBoxLayout()
+        self.chk_perf_cpu = QCheckBox("Isolate CPU Cores between Server and Game Client")
+        self.chk_perf_cpu.setChecked(cfg.get("enable_cpu_pinning", True))
+        self.chk_perf_cpu.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 13px; }")
+        
+        lbl_s_cores = QLabel("Server CPU Cores:")
+        self.txt_server_cores = QLineEdit(cfg.get("server_cpu_cores", "0-7"))
+        self.txt_server_cores.setFixedWidth(90)
+        lbl_c_cores = QLabel("Client CPU Cores:")
+        self.txt_client_cores = QLineEdit(cfg.get("client_cpu_cores", "8-31"))
+        self.txt_client_cores.setFixedWidth(90)
+        
+        cores_layout.addWidget(self.chk_perf_cpu)
+        cores_layout.addStretch()
+        cores_layout.addWidget(lbl_s_cores)
+        cores_layout.addWidget(self.txt_server_cores)
+        cores_layout.addSpacing(12)
+        cores_layout.addWidget(lbl_c_cores)
+        cores_layout.addWidget(self.txt_client_cores)
+        
+        c_help = QLabel("<small style='color: #a6adc8;'>Pins SPT.Server.Linux to dedicated cores so it never steals CPU cycles or triggers Unity GC stutters during raids.</small>")
+        c_help.setWordWrap(True)
+        
+        c_lay.addLayout(cores_layout)
+        c_lay.addWidget(c_help)
+        form_layout.addWidget(card_cpu)
+
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+
+        # Apply Button
+        btn_apply = QPushButton("⚡ Save & Apply to launcher.sh & server.sh")
+        btn_apply.setFixedHeight(40)
+        btn_apply.setStyleSheet("""
+            QPushButton { background-color: #a6e3a1; color: #11111b; font-size: 14px; font-weight: bold; border-radius: 8px; padding: 8px 20px; }
+            QPushButton:hover { background-color: #b4befe; color: #11111b; }
+        """)
+        btn_apply.clicked.connect(self.save_and_apply_performance_settings)
+        layout.addWidget(btn_apply)
+
+    def save_and_apply_performance_settings(self):
+        cfg = load_config()
+        cfg["enable_mangohud"] = self.chk_perf_mangohud.isChecked()
+        cfg["enable_fsr4"] = self.chk_perf_fsr4.isChecked()
+        cfg["enable_dxvk_async"] = self.chk_perf_dxvk.isChecked()
+        cfg["enable_cpu_pinning"] = self.chk_perf_cpu.isChecked()
+        cfg["server_cpu_cores"] = self.txt_server_cores.text().strip() or "0-7"
+        cfg["client_cpu_cores"] = self.txt_client_cores.text().strip() or "8-31"
+        save_config(cfg)
+
+        spt_dir = Path(cfg.get("spt_path", str(SPT_ROOT)))
+        launcher_sh = Path(cfg.get("launcher_script", str(spt_dir / "launcher.sh")))
+        server_sh = Path(cfg.get("server_script", str(spt_dir / "server.sh")))
+
+        # Update launcher.sh
+        if launcher_sh.exists():
+            try:
+                content = launcher_sh.read_text(encoding="utf-8")
+                content = re.sub(r'ENABLE_CPU_PINNING=\d', f'ENABLE_CPU_PINNING={1 if cfg["enable_cpu_pinning"] else 0}', content)
+                content = re.sub(r'CLIENT_CPU_CORES="[^"]*"', f'CLIENT_CPU_CORES="{cfg["client_cpu_cores"]}"', content)
+                content = re.sub(r'ENABLE_DXVK_ASYNC=\d', f'ENABLE_DXVK_ASYNC={1 if cfg["enable_dxvk_async"] else 0}', content)
+                content = re.sub(r'ENABLE_FSR4=\d', f'ENABLE_FSR4={1 if cfg["enable_fsr4"] else 0}', content)
+                content = re.sub(r'ENABLE_MANGOHUD=\d', f'ENABLE_MANGOHUD={1 if cfg["enable_mangohud"] else 0}', content)
+                launcher_sh.write_text(content, encoding="utf-8")
+            except Exception as e:
+                print(f"Error updating launcher.sh: {e}")
+
+        # Update server.sh
+        if server_sh.exists():
+            try:
+                content = server_sh.read_text(encoding="utf-8")
+                content = re.sub(r'ENABLE_CPU_PINNING=\d', f'ENABLE_CPU_PINNING={1 if cfg["enable_cpu_pinning"] else 0}', content)
+                content = re.sub(r'SERVER_CPU_CORES="[^"]*"', f'SERVER_CPU_CORES="{cfg["server_cpu_cores"]}"', content)
+                server_sh.write_text(content, encoding="utf-8")
+            except Exception as e:
+                print(f"Error updating server.sh: {e}")
+
+        QMessageBox.information(self, "⚡ Performance Settings Applied",
+                                "Performance tuning options have been saved and applied to launcher.sh and server.sh!")
 
     # ------------------ Server Controls ------------------
     def check_server_status(self):

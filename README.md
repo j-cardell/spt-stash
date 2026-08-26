@@ -48,7 +48,7 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 - **📦 Multi-File Mod Consolidation**: Bundles client + server files (e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
 - **🟢 Fika Co-Op Compatibility Integration**: Automatically queries and displays Fika multiplayer compatibility badges for all installed mods.
 - **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
-- **🛠 Archive Auto-Extractor**: Install `.zip` or `.7z` archives with automatic Linux path separator normalization.
+- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
 - **🎮 Server & Launcher Execution**: Direct process control for `server.sh` and `launcher.sh` with live `pgrep` status monitoring.
 
 ---
