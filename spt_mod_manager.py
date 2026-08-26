@@ -2756,10 +2756,11 @@ class SPTModManagerWindow(QMainWindow):
         preset = self.current_selected_preset
         html_out = generate_html_stash_manifest(preset)
 
+        clean_name = re.sub(r'[^a-zA-Z0-9_-]', '_', preset.get('name', 'preset').lower())
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Preset HTML Manifest",
-            str(Path.home() / f"{re.sub(r'[^a-zA-Z0-9_\-]', '_', preset.get('name', 'preset').lower())}.html"),
+            str(Path.home() / f"{clean_name}.html"),
             "HTML Manifest Files (*.html);;JSON Manifest Files (*.json)"
         )
         if not file_path:
