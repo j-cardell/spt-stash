@@ -412,15 +412,16 @@ def find_spt_root():
     except Exception:
         script_dir = None
 
+    # Prioritize standard SPT installation directories FIRST
     candidates = [
-        Path.cwd().resolve(),
         Path.home() / "Games" / "SPT",
         Path.home() / "Games" / "SinglePlayerTarkov",
         Path.home() / ".games" / "SPT",
-        Path.home() / "spt"
+        Path.home() / "spt",
     ]
     if script_dir:
-        candidates.insert(1, script_dir)
+        candidates.append(script_dir)
+    candidates.append(Path.cwd().resolve())
 
     for cand in candidates:
         if cand.exists() and ((cand / "SPT_Runtime").exists() or (cand / "BepInEx").exists() or (cand / "launcher.sh").exists()):
