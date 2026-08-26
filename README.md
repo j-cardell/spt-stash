@@ -6,7 +6,7 @@
 [![Build & Release AppImage](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml)
 [![License: MIT](https://img.shields.org/badge/License-MIT-blue.svg)](LICENSE)
 
-**SPT Stash** is a modern, fast, Catppuccin-themed GTK/Qt desktop application built specifically for managing Single-Player Tarkov (SPT) client and server mods on Linux and Steam Deck (SteamOS).
+**SPT Stash** is a modern, fast desktop application built specifically for managing Single-Player Tarkov (SPT) client and server mods on Linux and Steam Deck (SteamOS).
 
 ---
 
@@ -50,6 +50,21 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 - **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
 - **🛠 Archive Auto-Extractor**: Install `.zip` or `.7z` archives with automatic Linux path separator normalization.
 - **🎮 Server & Launcher Execution**: Direct process control for `server.sh` and `launcher.sh` with live `pgrep` status monitoring.
+
+---
+
+## ⚙️ Settings & Path Configuration Guide
+
+Click **⚙️ Settings** at the top right of **SPT Stash** to configure your installation paths:
+
+| Setting | Plain-English Description | Example Path |
+| :--- | :--- | :--- |
+| **SPT Installation Folder** | Select the root folder where your Single-Player Tarkov installation lives. Must contain `server.sh`, `launcher.sh`, `BepInEx`, and `SPT_Runtime`. <br>⚠️ *Do **NOT** select your Wine/Proton Tarkov prefix directory.* | `~/Games/SPT` |
+| **Mod Staging Stash Directory** | Local directory where **SPT Stash** downloads and extracts mod files. Mods stay safely stored here and are symlinked into your game when enabled. | `~/.local/share/spt-mod-manager/staged` |
+| **Start Server Script Path** | Path to `server.sh` (or `SPT.Server.exe`) used to launch the local SPT server. | `~/Games/SPT/server.sh` |
+| **Launch SPT Script Path** | Path to `launcher.sh` (or `SPT.Launcher.exe`) used to start the launcher and game. | `~/Games/SPT/launcher.sh` |
+
+> 💡 **Missing Script Alert**: If `server.sh` or `launcher.sh` are not found when launching, **SPT Stash** displays an alert dialog with a direct **`⚙️ Open Settings`** button to update your paths.
 
 ---
 

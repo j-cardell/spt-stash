@@ -1044,7 +1044,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("⚙️ SPT Stash Settings")
-        self.resize(620, 340)
+        self.resize(650, 420)
         self.setStyleSheet("""
             QDialog { background-color: #1e1e2e; color: #cdd6f4; }
             QLabel { color: #cdd6f4; font-weight: bold; font-size: 13px; }
@@ -1057,40 +1057,64 @@ class SettingsDialog(QDialog):
 
         self.cfg = load_config()
 
-        layout.addWidget(QLabel("SPT Installation Folder:"))
+        # SPT Path
+        lbl_spt = QLabel("SPT Installation Folder:")
+        lbl_spt_help = QLabel("<small style='color: #a6adc8;'>Root directory containing server.sh, launcher.sh, BepInEx, and SPT_Runtime (e.g. ~/Games/SPT). Do NOT select Wine/Proton prefix.</small>")
+        lbl_spt_help.setWordWrap(True)
         spt_layout = QHBoxLayout()
         self.txt_spt = QLineEdit(self.cfg.get("spt_path", ""))
+        self.txt_spt.setToolTip("Select the root directory where Single-Player Tarkov (SPT) is installed (e.g. ~/Games/SPT).")
         btn_browse_spt = QPushButton("Browse...")
         btn_browse_spt.clicked.connect(self.browse_spt_folder)
         spt_layout.addWidget(self.txt_spt)
         spt_layout.addWidget(btn_browse_spt)
+        layout.addWidget(lbl_spt)
+        layout.addWidget(lbl_spt_help)
         layout.addLayout(spt_layout)
 
-        layout.addWidget(QLabel("Mod Staging Stash Directory:"))
+        # Staged Directory
+        lbl_staged = QLabel("Mod Staging Stash Directory:")
+        lbl_staged_help = QLabel("<small style='color: #a6adc8;'>Local directory where SPT Stash downloads and stages mods before symlinking into the game.</small>")
+        lbl_staged_help.setWordWrap(True)
         staged_layout = QHBoxLayout()
         self.txt_staged = QLineEdit(self.cfg.get("staged_dir", ""))
+        self.txt_staged.setToolTip("Directory where SPT Stash stores downloaded and extracted mod files.")
         btn_browse_staged = QPushButton("Browse...")
         btn_browse_staged.clicked.connect(self.browse_staged_folder)
         staged_layout.addWidget(self.txt_staged)
         staged_layout.addWidget(btn_browse_staged)
+        layout.addWidget(lbl_staged)
+        layout.addWidget(lbl_staged_help)
         layout.addLayout(staged_layout)
 
-        layout.addWidget(QLabel("Start Server Script Path:"))
+        # Server Script Path
+        lbl_server = QLabel("Start Server Script Path:")
+        lbl_server_help = QLabel("<small style='color: #a6adc8;'>Path to server.sh (or SPT.Server.exe) used to launch the SPT server process.</small>")
+        lbl_server_help.setWordWrap(True)
         server_layout = QHBoxLayout()
         self.txt_server = QLineEdit(self.cfg.get("server_script", ""))
+        self.txt_server.setToolTip("Executable path to server.sh or SPT.Server.exe.")
         btn_browse_server = QPushButton("Browse...")
         btn_browse_server.clicked.connect(self.browse_server_script)
         server_layout.addWidget(self.txt_server)
         server_layout.addWidget(btn_browse_server)
+        layout.addWidget(lbl_server)
+        layout.addWidget(lbl_server_help)
         layout.addLayout(server_layout)
 
-        layout.addWidget(QLabel("Launch SPT / Launcher Script Path:"))
+        # Launcher Script Path
+        lbl_launcher = QLabel("Launch SPT / Launcher Script Path:")
+        lbl_launcher_help = QLabel("<small style='color: #a6adc8;'>Path to launcher.sh (or SPT.Launcher.exe) used to launch the game.</small>")
+        lbl_launcher_help.setWordWrap(True)
         launcher_layout = QHBoxLayout()
         self.txt_launcher = QLineEdit(self.cfg.get("launcher_script", ""))
+        self.txt_launcher.setToolTip("Executable path to launcher.sh or SPT.Launcher.exe.")
         btn_browse_launcher = QPushButton("Browse...")
         btn_browse_launcher.clicked.connect(self.browse_launcher_script)
         launcher_layout.addWidget(self.txt_launcher)
         launcher_layout.addWidget(btn_browse_launcher)
+        layout.addWidget(lbl_launcher)
+        layout.addWidget(lbl_launcher_help)
         layout.addLayout(launcher_layout)
 
         btn_box = QHBoxLayout()
@@ -3356,6 +3380,21 @@ class SPTModManagerWindow(QMainWindow):
                 self.btn_server_control.setText("▶ Start Server")
                 self.btn_server_control.setStyleSheet("background-color: #a6e3a1; color: #11111b; font-weight: bold;")
 
+    def show_missing_script_dialog(self, script_name, target_path):
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(f"⚠️ {script_name} Not Found")
+        msg.setText(
+            f"<b>Could not find '{script_name}'</b> at:<br><code>{target_path}</code><br><br>"
+            f"Please verify your SPT installation folder in <b>Settings</b>.<br><br>"
+            f"<i>Note: Select the directory containing server.sh, launcher.sh, BepInEx, and SPT_Runtime (e.g. <code>~/Games/SPT</code>). Do NOT select your Wine/Proton Tarkov prefix.</i>"
+        )
+        btn_open_settings = msg.addButton("⚙️ Open Settings", QMessageBox.AcceptRole)
+        msg.addButton("Cancel", QMessageBox.RejectRole)
+        msg.exec()
+        if msg.clickedButton() == btn_open_settings:
+            self.open_settings_dialog()
+
     def toggle_server_control(self):
         res = subprocess.run(["pgrep", "-f", "SPT.Server"], capture_output=True)
         if res.returncode == 0:
@@ -3368,7 +3407,7 @@ class SPTModManagerWindow(QMainWindow):
                 subprocess.Popen([str(server_script)], cwd=str(server_script.parent))
                 QMessageBox.information(self, "SPT Server", f"Starting SPT Server script:\n{server_script.name}")
             else:
-                QMessageBox.warning(self, "Server Script Not Found", f"Server script not found at:\n{server_script}\n\nPlease configure it in Settings.")
+                self.show_missing_script_dialog("server.sh", server_script)
             self.check_server_status()
 
     def launch_spt(self):
@@ -3378,7 +3417,7 @@ class SPTModManagerWindow(QMainWindow):
             subprocess.Popen([str(launcher_script)], cwd=str(launcher_script.parent))
             QMessageBox.information(self, "SPT Launch", f"Launching SPT via:\n{launcher_script.name}")
         else:
-            QMessageBox.warning(self, "Launcher Script Not Found", f"Launcher script not found at:\n{launcher_script}\n\nPlease configure it in Settings.")
+            self.show_missing_script_dialog("launcher.sh", launcher_script)
 
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
