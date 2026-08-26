@@ -47,7 +47,7 @@ class TestSPTModManagerCore(unittest.TestCase):
                     "title": "SAIN - Solarint's AI Modifications - Full AI Package",
                     "creator": "Solarint",
                     "version": "3.0.0",
-                    "link": "https://sp-mod.com/mod/123/sain",
+                    "link": "https://sp-mod.com/mod/123/sain-solarints-ai-modifications",
                     "fika_status": "🟢 Compatible"
                 }
             ]

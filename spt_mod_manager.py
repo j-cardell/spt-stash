@@ -481,7 +481,7 @@ def find_best_catalog_match_global(name):
     for alias_k, alias_v in ALIASES.items():
         if alias_k in name_clean:
             for m in catalog_mods:
-                if alias_v in m["link"].lower():
+                if alias_v in m.get("link", "").lower() or alias_v in re.sub(r'[^a-z0-9]', '-', m.get("title", "").lower()):
                     return m
 
     clean_name = re.sub(r'([a-z])([A-Z])', r'\1 \2', re.sub(r'\.dll$', '', name, flags=re.I))
