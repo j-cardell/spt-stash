@@ -66,6 +66,15 @@ Click **⚙️ Settings** at the top right of **SPT Stash** to configure your in
 
 > 💡 **Missing Script Alert**: If `server.sh` or `launcher.sh` are not found when launching, **SPT Stash** displays an alert dialog with a direct **`⚙️ Open Settings`** button to update your paths.
 
+### 📁 File Locations & System Data Storage
+
+| Component | System Location | Purpose / Description |
+| :--- | :--- | :--- |
+| **Config File** | `~/.config/spt-mod-manager/config.json` | Stores configured paths (`spt_path`, `staged_dir`, `server_script`, `launcher_script`). |
+| **Presets Directory** | `~/.config/spt-mod-manager/presets/` | Stores saved raid loadout preset `.json` files. |
+| **Mod Staging Stash** | `~/.local/share/spt-mod-manager/staged/` | Directory where downloaded mod archives are unzipped before symlinking. |
+| **Catalog Cache** | `~/.cache/spt-mod-manager/catalog.json` | Offline cache of sp-mod.com Forge mod catalog metadata. |
+
 ---
 
 ## 🚀 Installation & Usage
