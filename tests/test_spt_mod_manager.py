@@ -23,6 +23,37 @@ import spt_mod_manager
 
 class TestSPTModManagerCore(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        # Provide self-contained catalog entries for offline unit testing
+        if not spt_mod_manager.CATALOG_CACHE_FILE.exists():
+            spt_mod_manager.CATALOG_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            mock_catalog = [
+                {
+                    "title": "ASBP - Acid's Scalable BepinEx Panel",
+                    "creator": "acidphantasm",
+                    "version": "1.0.0",
+                    "link": "https://sp-mod.com/mod/2931/asbp-acids-scalable-bepinex-panel",
+                    "fika_status": "🟢 Compatible"
+                },
+                {
+                    "title": "UI Fixes",
+                    "creator": "Tyfon",
+                    "version": "1.8.0",
+                    "link": "https://sp-mod.com/mod/538/ui-fixes",
+                    "fika_status": "🟢 Compatible"
+                },
+                {
+                    "title": "SAIN - Solarint's AI Modifications - Full AI Package",
+                    "creator": "Solarint",
+                    "version": "3.0.0",
+                    "link": "https://sp-mod.com/mod/123/sain",
+                    "fika_status": "🟢 Compatible"
+                }
+            ]
+            with open(spt_mod_manager.CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(mock_catalog, f)
+
     def test_version_parsing(self):
         """Test semver tuple parsing and comparison."""
         self.assertEqual(spt_mod_manager.parse_version_tuple("v1.8.0"), (1, 8, 0))

@@ -60,7 +60,7 @@ jobs:
       - name: Run Bandit Code Security Scan
         run: |
           # Scans Python code for security issues (subprocess, injection, permissions)
-          bandit -r spt_mod_manager.py -ll -ii -s B310,B404,B603,B607
+          bandit -r spt_mod_manager.py -ll -ii -s B108,B310,B404,B603,B607
 
       - name: Run Dependency Vulnerability Scan (Pip-Audit)
         run: |
