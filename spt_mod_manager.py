@@ -437,7 +437,9 @@ def detect_gpu_hardware():
     vendor = "UNKNOWN"
     gpu_name = "Unknown Graphics Card"
     try:
-        res = subprocess.run(["lspci"], capture_output=True, text=True)
+        lspci_bin = shutil.which("lspci") or "/usr/bin/lspci"
+        if Path(lspci_bin).exists():
+            res = subprocess.run([lspci_bin], capture_output=True, text=True)  # nosec B603, B607
         lines = [line for line in res.stdout.splitlines() if any(k in line.lower() for k in ["vga", "3d", "display"])]
         if lines:
             target = lines[0]
