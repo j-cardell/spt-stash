@@ -6,7 +6,37 @@
 [![Build & Release AppImage](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml)
 [![License: MIT](https://img.shields.org/badge/License-MIT-blue.svg)](LICENSE)
 
-**SPT Stash** is a modern, fast, Catppuccin-themed desktop application built specifically for managing Single-Player Tarkov (SPT) client and server mods on Linux and Steam Deck (SteamOS).
+**SPT Stash** is a modern, fast, Catppuccin-themed GTK/Qt desktop application built specifically for managing Single-Player Tarkov (SPT) client and server mods on Linux and Steam Deck (SteamOS).
+
+---
+
+## 🖼️ Application Showcase
+
+### 1. Installed Mods Overview
+Manage client (`BepInEx/plugins`) and server (`user/mods`) mods with zero-copy symlink staging, interactive column sorting, Fika Co-Op compatibility badges, and direct clickable author profile links (`https://sp-mod.com/user/<id>/<author>`).
+
+![Installed Mods Overview](docs/screenshots/installed_mods.png)
+
+---
+
+### 2. Presets & Manifest Manager
+Create, save, and manage loadout presets with live state auto-syncing. Export interactive, self-contained HTML manifests to share your raid loadouts with friends.
+
+![Presets & Manifests](docs/screenshots/presets.png)
+
+---
+
+### 3. Live Mod Catalog (sp-mod.com Forge)
+Browse, search, and 1-click install mods directly from **sp-mod.com (The Forge)** with dependency auto-detection and metadata sidecar stamping.
+
+![Browse sp-mod.com Forge Catalog](docs/screenshots/browse_forge.png)
+
+---
+
+### 4. Local Archive Installer
+Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically normalizes Windows path separators and places Client/Server components into your staging environment.
+
+![Install Local Mod Archive](docs/screenshots/install_archive.png)
 
 ---
 
