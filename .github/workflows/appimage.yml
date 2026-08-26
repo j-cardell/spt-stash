@@ -1,0 +1,89 @@
+name: Build & Release AppImage
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-appimage:
+    name: Build Standalone AppImage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Build & System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 wget
+          pip install --upgrade pip
+          pip install PySide6 pyinstaller
+
+      - name: Compile Standalone Binary with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed \
+            --name spt-stash \
+            spt_mod_manager.py
+
+      - name: Structure AppDir Workspace
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps AppDir/usr/share/applications
+          cp dist/spt-stash AppDir/usr/bin/spt-stash
+          
+          # Create Desktop Launcher inside AppDir
+          cat << 'EOF' > AppDir/usr/share/applications/spt-stash.desktop
+          [Desktop Entry]
+          Name=SPT Stash
+          Comment=Native Linux Mod Manager for Single-Player Tarkov (SPT)
+          Exec=spt-stash
+          Icon=spt-stash
+          Terminal=false
+          Type=Application
+          Categories=Game;Utility;
+          EOF
+
+          # Create default SVG/PNG icon for AppImage tool
+          cat << 'EOF' > AppDir/spt-stash.svg
+          <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="none" stroke="#89b4fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          EOF
+          cp AppDir/spt-stash.svg AppDir/usr/share/icons/hicolor/256x256/apps/spt-stash.svg
+
+          # Create AppRun Entrypoint Script
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/spt-stash" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Build AppImage Executable
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir SPT_Stash-x86_64.AppImage
+
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPT_Stash-x86_64.AppImage
+          path: SPT_Stash-x86_64.AppImage
+
+      - name: Upload Release Asset (On Tag Push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SPT_Stash-x86_64.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

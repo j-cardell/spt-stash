@@ -1,0 +1,37 @@
+# Game & Runtime Files (Ignore Tarkov binaries, game logs, and runtime)
+EscapeFromTarkov*
+UnityPlayer.dll
+winhttp.dll
+doorstop_config.ini
+.doorstop_version
+LICENSE-*.txt
+Greed.exe
+SPT_Runtime/
+MonoBleedingEdge/
+NLog/
+Logs/
+BepInEx/
+user/
+launcher.sh*
+server.sh*
+
+# Python & Build Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+AppDir/
+*.AppImage
+*.spec
+
+# IDE & OS Files
+.DS_Store
+.vscode/
+.idea/
+*.swp
