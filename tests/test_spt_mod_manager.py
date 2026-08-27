@@ -156,6 +156,34 @@ class TestSPTModManagerCore(unittest.TestCase):
             self.assertFalse(mod_staged.exists())
             self.assertFalse(mod_live.exists())
 
+    def test_svm_dir_detection_and_preset_handling(self):
+        """Test SVM directory finding and preset JSON reading/writing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            svm_mod_dir = base / "user" / "mods" / "[SVM] Server Value Modifier"
+            presets_dir = svm_mod_dir / "Presets"
+            loader_dir = svm_mod_dir / "Loader"
+            presets_dir.mkdir(parents=True)
+            loader_dir.mkdir(parents=True)
+
+            sample_preset = {
+                "Items": {"RubStack": 2000000, "AllExaminedItems": True},
+                "Hideout": {"Stash": {"StashLvl1": 35}}
+            }
+            preset_file = presets_dir / "TestPreset.json"
+            preset_file.write_text(json.dumps(sample_preset), encoding="utf-8")
+
+            loader_file = loader_dir / "loader.json"
+            loader_file.write_text(json.dumps({"CurrentlySelectedPreset": "TestPreset"}), encoding="utf-8")
+
+            found_dir = spt_mod_manager.find_svm_dir(base)
+            self.assertIsNotNone(found_dir)
+            self.assertEqual(found_dir, svm_mod_dir)
+
+            loaded_data = json.loads(preset_file.read_text(encoding="utf-8"))
+            self.assertEqual(loaded_data["Items"]["RubStack"], 2000000)
+            self.assertTrue(loaded_data["Items"]["AllExaminedItems"])
+
 
 if __name__ == "__main__":
     unittest.main()

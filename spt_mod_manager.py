@@ -20,226 +20,24 @@ import webbrowser
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGridLayout,
     QTabWidget, QListWidget, QListWidgetItem, QPushButton, QLabel,
     QLineEdit, QTextBrowser, QSplitter, QTableWidget, QTableWidgetItem,
     QFileDialog, QMessageBox, QComboBox, QGroupBox, QHeaderView,
     QFrame, QProgressBar, QDialog, QTreeWidget, QTreeWidgetItem, QCheckBox,
-    QStyledItemDelegate, QStyle, QAbstractItemView, QMenu, QScrollArea
+    QStyledItemDelegate, QStyle, QAbstractItemView, QAbstractItemView, QMenu, QScrollArea,
+    QFormLayout, QDoubleSpinBox, QSpinBox, QInputDialog, QTextEdit
 )
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSize
-from PySide6.QtGui import QFont, QColor, QIcon, QDesktopServices, QPixmap, QImage, QTextDocument, QPainter, QBrush, QPen
+from PySide6.QtGui import QFont, QColor
 import json
-import re
-import html
 
 CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
 CATALOG_CACHE_FILE = CACHE_DIR / "catalog.json"
 IMAGE_CACHE_DIR = CACHE_DIR / "images"
-DOWNLOADS_CACHE_DIR = CACHE_DIR / "downloads"
-
-STAGED_DIR = Path.home() / ".local" / "share" / "spt-mod-manager" / "staged"
-STAGED_CLIENT = STAGED_DIR / "client"
-STAGED_SERVER = STAGED_DIR / "server"
 
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-DOWNLOADS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-STAGED_CLIENT.mkdir(parents=True, exist_ok=True)
-STAGED_SERVER.mkdir(parents=True, exist_ok=True)
-
-
-def detect_installed_spt_version():
-    spt_root = SPT_ROOT.resolve() if 'SPT_ROOT' in globals() else Path.home() / "Games" / "SPT"
-    dll_path = spt_root / "SPT_Runtime" / "SPTarkov.Server.Core.dll"
-    if dll_path.exists():
-        try:
-            res = subprocess.run(['strings', str(dll_path)], capture_output=True, text=True)
-            matches = re.findall(r'\b(4\.\d+\.\d+)\b', res.stdout)
-            if matches:
-                return f"SPT {matches[0]}"
-        except Exception:
-            pass
-    return "SPT 4.1.3"
-
-
-def check_dep_status(dep_title):
-    spt_root = SPT_ROOT.resolve() if 'SPT_ROOT' in globals() else Path.home() / "Games" / "SPT"
-    staged_dir = STAGED_DIR.resolve() if 'STAGED_DIR' in globals() else Path.home() / ".local" / "share" / "spt-mod-manager" / "staged"
-
-    clean_title = re.sub(r'\.dll$', '', dep_title, flags=re.I)
-    ignore_words = {'mod', 'mods', 'the', 'and', 'for', 'with', 'spt', 'tarkov', 'expanded', 'navmesh', 'dll', 'exe', 'plugin', 'plugins'}
-    words = [w.lower() for w in re.findall(r'\b[a-zA-Z0-9]{3,}\b', clean_title) if w.lower() not in ignore_words]
-    if not words:
-        words = [clean_title.lower().strip()]
-
-    # 1. Check if ENABLED in active game dirs
-    game_dirs = [spt_root / "BepInEx" / "plugins", spt_root / "SPT_Runtime" / "user" / "mods"]
-    for d in game_dirs:
-        if d.exists():
-            for p in d.iterdir():
-                if any(w in p.name.lower() for w in words):
-                    return "ENABLED", p
-
-    # 2. Check if STAGED in stash (disabled)
-    staged_dirs = [staged_dir / "client", staged_dir / "server"]
-    for d in staged_dirs:
-        if d.exists():
-            for p in d.iterdir():
-                if any(w in p.name.lower() for w in words):
-                    return "STAGED_DISABLED", p
-
-    return "MISSING", None
-
-
-def parse_version_tuple(ver_str):
-    if not ver_str:
-        return (0, 0, 0)
-    clean = re.sub(r'^[vV]', '', str(ver_str).strip())
-    parts = re.findall(r'\d+', clean)
-    return tuple(int(p) for p in parts[:4]) if parts else (0, 0, 0)
-
-
-def is_version_newer(latest_ver, current_ver):
-    return parse_version_tuple(latest_ver) > parse_version_tuple(current_ver)
-
-
-def resolve_author_profile_url(mod_dict):
-    staged_p = mod_dict.get("staged_path")
-    meta = load_mod_meta(staged_p) or {} if staged_p else {}
-    if meta.get("author_link"):
-        return meta.get("author_link")
-
-    matched = find_best_catalog_match_global(mod_dict["name"])
-    mod_url = meta.get("link") or (matched.get("link") if matched else None)
-    
-    if mod_url:
-        try:
-            req = urllib.request.Request(mod_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
-            raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
-            user_links = re.findall(r'href=[\'\"](https?://sp-mod\.com/user/\d+/[^\'\"]+|/user/\d+/[^\'\"]+)[\'\"]', raw_html)
-            if user_links:
-                profile_url = user_links[0]
-                if profile_url.startswith("/"):
-                    profile_url = f"https://sp-mod.com{profile_url}"
-                
-                meta["author_link"] = profile_url
-                if mod_dict.get("client_staged"): save_mod_meta(mod_dict["client_staged"], meta)
-                if mod_dict.get("server_staged"): save_mod_meta(mod_dict["server_staged"], meta)
-                return profile_url
-        except Exception:
-            pass
-
-    author_str = meta.get("author") or (matched.get("creator") if matched else "Community")
-    return f"https://sp-mod.com/mods?query={urllib.parse.quote(author_str)}"
-
-
-def is_dependency_installed(dep_title):
-    status, _ = check_dep_status(dep_title)
-    return status == "ENABLED"
-
-
-def purge_mod_files_and_symlinks(mod_data):
-    if not mod_data:
-        return
-
-    if isinstance(mod_data, dict):
-        client_items = mod_data.get("client_items", [])
-        server_items = mod_data.get("server_items", [])
-        for item, live_link, _ in client_items:
-            if live_link.is_symlink() or live_link.exists():
-                if live_link.is_symlink() or not live_link.is_dir(): live_link.unlink()
-                else: shutil.rmtree(live_link)
-            if item.exists():
-                if item.is_dir(): shutil.rmtree(item)
-                else: item.unlink()
-            meta_p = item.parent / f".{item.name}.meta.json"
-            if meta_p.exists(): meta_p.unlink()
-
-        for item, live_link, _ in server_items:
-            if live_link.is_symlink() or live_link.exists():
-                if live_link.is_symlink() or not live_link.is_dir(): live_link.unlink()
-                else: shutil.rmtree(live_link)
-            if item.exists():
-                if item.is_dir(): shutil.rmtree(item)
-                else: item.unlink()
-            meta_p = item.parent / f".{item.name}.meta.json"
-            if meta_p.exists(): meta_p.unlink()
-    else:
-        mod_name = str(mod_data)
-        for base_staged, base_live in [(STAGED_CLIENT, CLIENT_MODS_DIR), (STAGED_SERVER, SERVER_MODS_DIR)]:
-            staged = base_staged / mod_name
-            live = base_live / mod_name
-            if live.is_symlink() or live.exists():
-                if live.is_symlink() or not live.is_dir(): live.unlink()
-                else: shutil.rmtree(live)
-            if staged.exists():
-                if staged.is_dir(): shutil.rmtree(staged)
-                else: staged.unlink()
-            meta_p = base_staged / f".{mod_name}.meta.json"
-            if meta_p.exists(): meta_p.unlink()
-
-
-def fetch_mod_dependencies_sync(mod_info):
-    deps = []
-    seen = set()
-    url = mod_info.get("link") if isinstance(mod_info, dict) else str(mod_info)
-    if not url:
-        return deps
-
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
-        raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
-
-        if isinstance(mod_info, dict):
-            m_guid = re.search(r'GUID</h3>[\s\S]{1,200}?<span[^>]*font-mono[^>]*>\s*([^\s<]+)', raw_html, re.I)
-            if m_guid: mod_info["guid"] = m_guid.group(1).strip()
-
-            m_lic = re.search(r'License</h3>[\s\S]{1,200}?<a[^>]*>\s*([^<\n]+)', raw_html, re.I)
-            if m_lic: mod_info["license"] = html.unescape(m_lic.group(1).strip())
-
-            m_src = re.search(r'Source Code</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
-            if m_src: mod_info["source_code"] = m_src.group(1).strip()
-
-            m_vt = re.search(r'VirusTotal[^<]*</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
-            if m_vt: mod_info["virustotal"] = m_vt.group(1).strip()
-
-            m_fika = re.search(r'(Fika\s+(?:Compatible[^\n<]*|Incompatible|Compatibility[^\n<]*))', raw_html, re.I)
-            if m_fika: mod_info["fika_status"] = m_fika.group(1).strip()
-
-            mod_info["has_ai"] = bool(re.search(r'Includes AI Generated Content', raw_html, re.I))
-
-        for m in re.finditer(r'<a[^>]+href=[\"\'](https://sp-mod\.com/mod/\d+/[^\'\"]+)[\"\'][^>]*>(.*?)</a>', raw_html, re.DOTALL):
-            link = m.group(1)
-            inner = m.group(2)
-            if link not in seen and link != url:
-                title_m = re.search(r'class=[\"\'][^\"\']*truncate[^\"\']*[\"\'][^>]*>\s*(.*?)\s*</p>', inner, re.DOTALL) or re.search(r'alt=[\"\']([^\"\']+)[\"\']', inner)
-                if title_m:
-                    clean_title = html.unescape(title_m.group(1).strip())
-                    seen.add(link)
-                    status, path = check_dep_status(clean_title)
-                    deps.append({
-                        "title": clean_title,
-                        "link": link,
-                        "status": status,
-                        "path": path,
-                        "installed": (status == "ENABLED")
-                    })
-    except Exception as e:
-        print(f"Sync dep fetch error for {url}: {e}")
-    return deps
-
-
-class DependencyFetcherThread(QThread):
-    fetched = Signal(dict, list)
-
-    def __init__(self, mod_info, parent=None):
-        super().__init__(parent)
-        self.mod_info = mod_info
-
-    def run(self):
-        deps = fetch_mod_dependencies_sync(self.mod_info)
-        self.fetched.emit(self.mod_info, deps)
 
 
 class RemoteImageTextBrowser(QTextBrowser):
@@ -384,7 +182,260 @@ class RSSFetcherThread(QThread):
 
             self.fetched.emit(mods)
         except Exception as e:
-            self.error.emit(str(e))
+            self.error.emit(str(e)), QPixmap, QImage, QTextDocument, QPainter, QBrush, QPen
+import json
+import re
+import html
+import html
+
+CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
+CATALOG_CACHE_FILE = CACHE_DIR / "catalog.json"
+IMAGE_CACHE_DIR = CACHE_DIR / "images"
+DOWNLOADS_CACHE_DIR = CACHE_DIR / "downloads"
+
+STAGED_DIR = Path.home() / ".local" / "share" / "spt-mod-manager" / "staged"
+STAGED_CLIENT = STAGED_DIR / "client"
+STAGED_SERVER = STAGED_DIR / "server"
+
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+DOWNLOADS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+STAGED_CLIENT.mkdir(parents=True, exist_ok=True)
+STAGED_SERVER.mkdir(parents=True, exist_ok=True)
+
+
+def detect_installed_spt_version():
+    spt_root = SPT_ROOT.resolve() if 'SPT_ROOT' in globals() else Path.home() / "Games" / "SPT"
+    dll_path = spt_root / "SPT_Runtime" / "SPTarkov.Server.Core.dll"
+    if dll_path.exists():
+        try:
+            res = subprocess.run(['strings', str(dll_path)], capture_output=True, text=True)
+            matches = re.findall(r'\b(4\.\d+\.\d+)\b', res.stdout)
+            if matches:
+                return f"SPT {matches[0]}"
+        except Exception as e:
+            print(f"Error fetching dependencies for {url}: {e}")
+    return "SPT 4.1.3"
+
+
+def check_dep_status(dep_title):
+    spt_root = SPT_ROOT.resolve() if 'SPT_ROOT' in globals() else Path.home() / "Games" / "SPT"
+    staged_dir = STAGED_DIR.resolve() if 'STAGED_DIR' in globals() else Path.home() / ".local" / "share" / "spt-mod-manager" / "staged"
+
+    clean_title = re.sub(r'(\.dll|\.Server|ServerMod|Server|\.Client|Client)$', '', dep_title, flags=re.I).strip()
+    target_alphanumeric = re.sub(r'[^a-z0-9]', '', clean_title.lower())
+
+    # 1. Check if ENABLED in active game dirs
+    game_dirs = [spt_root / "BepInEx" / "plugins", spt_root / "SPT_Runtime" / "user" / "mods", spt_root / "user" / "mods"]
+    for d in game_dirs:
+        if d.exists():
+            for p in d.iterdir():
+                if p.name.startswith('.'): continue
+                p_clean = re.sub(r'[^a-z0-9]', '', p.name.lower())
+                if target_alphanumeric and (target_alphanumeric in p_clean or p_clean in target_alphanumeric):
+                    return "ENABLED", p
+
+    # 2. Check if STAGED in stash (disabled)
+    staged_dirs = [staged_dir / "client", staged_dir / "server"]
+    for d in staged_dirs:
+        if d.exists():
+            for p in d.iterdir():
+                if p.name.startswith('.'): continue
+                p_clean = re.sub(r'[^a-z0-9]', '', p.name.lower())
+                if target_alphanumeric and (target_alphanumeric in p_clean or p_clean in target_alphanumeric):
+                    return "STAGED_DISABLED", p
+
+    return "MISSING", None
+
+
+def parse_version_tuple(ver_str):
+    if not ver_str:
+        return (0, 0, 0)
+    clean = re.sub(r'^[vV]', '', str(ver_str).strip())
+    parts = re.findall(r'\d+', clean)
+    return tuple(int(p) for p in parts[:4]) if parts else (0, 0, 0)
+
+
+def is_version_newer(latest_ver, current_ver):
+    return parse_version_tuple(latest_ver) > parse_version_tuple(current_ver)
+
+
+def resolve_author_profile_url(mod_dict):
+    staged_p = mod_dict.get("staged_path")
+    meta = load_mod_meta(staged_p) or {} if staged_p else {}
+    if meta.get("author_link"):
+        return meta.get("author_link")
+
+    matched = find_best_catalog_match_global(mod_dict["name"])
+    mod_url = meta.get("link") or (matched.get("link") if matched else None)
+    
+    if mod_url:
+        try:
+            req = urllib.request.Request(mod_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
+            raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
+            user_links = re.findall(r'href=[\'\"](https?://sp-mod\.com/user/\d+/[^\'\"]+|/user/\d+/[^\'\"]+)[\'\"]', raw_html)
+            if user_links:
+                profile_url = user_links[0]
+                if profile_url.startswith("/"):
+                    profile_url = f"https://sp-mod.com{profile_url}"
+                
+                meta["author_link"] = profile_url
+                if mod_dict.get("client_staged"): save_mod_meta(mod_dict["client_staged"], meta)
+                if mod_dict.get("server_staged"): save_mod_meta(mod_dict["server_staged"], meta)
+                return profile_url
+        except Exception:
+            pass
+
+    author_str = meta.get("author") or (matched.get("creator") if matched else "Community")
+    return f"https://sp-mod.com/mods?query={urllib.parse.quote(author_str)}"
+
+
+
+
+
+
+
+
+def is_dependency_installed(dep_title):
+    status, _ = check_dep_status(dep_title)
+    return status == "ENABLED"
+
+
+def purge_mod_files_and_symlinks(mod_data):
+    if not mod_data:
+        return
+
+    if isinstance(mod_data, dict):
+        client_items = mod_data.get("client_items", [])
+        server_items = mod_data.get("server_items", [])
+        for item, live_link, _ in client_items:
+            if live_link.is_symlink() or live_link.exists():
+                if live_link.is_symlink() or not live_link.is_dir(): live_link.unlink()
+                else: shutil.rmtree(live_link)
+            if item.exists():
+                if item.is_dir(): shutil.rmtree(item)
+                else: item.unlink()
+            meta_p = item.parent / f".{item.name}.meta.json"
+            if meta_p.exists(): meta_p.unlink()
+
+        for item, live_link, _ in server_items:
+            if live_link.is_symlink() or live_link.exists():
+                if live_link.is_symlink() or not live_link.is_dir(): live_link.unlink()
+                else: shutil.rmtree(live_link)
+            if item.exists():
+                if item.is_dir(): shutil.rmtree(item)
+                else: item.unlink()
+            meta_p = item.parent / f".{item.name}.meta.json"
+            if meta_p.exists(): meta_p.unlink()
+    else:
+        mod_name = str(mod_data)
+        for base_staged, base_live in [(STAGED_CLIENT, CLIENT_MODS_DIR), (STAGED_SERVER, SERVER_MODS_DIR)]:
+            staged = base_staged / mod_name
+            live = base_live / mod_name
+            if live.is_symlink() or live.exists():
+                if live.is_symlink() or not live.is_dir(): live.unlink()
+                else: shutil.rmtree(live)
+            if staged.exists():
+                if staged.is_dir(): shutil.rmtree(staged)
+                else: staged.unlink()
+            meta_p = base_staged / f".{mod_name}.meta.json"
+            if meta_p.exists(): meta_p.unlink()
+
+
+
+
+def fetch_mod_dependencies_sync(mod_info):
+    deps = []
+    seen = set()
+    url = mod_info.get("link") if isinstance(mod_info, dict) else str(mod_info)
+    if not url:
+        return deps
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
+        raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
+
+        if isinstance(mod_info, dict):
+            m_guid = re.search(r'GUID</h3>[\s\S]{1,200}?<span[^>]*font-mono[^>]*>\s*([^\s<]+)', raw_html, re.I)
+            if m_guid: mod_info["guid"] = m_guid.group(1).strip()
+
+            m_lic = re.search(r'License</h3>[\s\S]{1,200}?<a[^>]*>\s*([^<\n]+)', raw_html, re.I)
+            if m_lic: mod_info["license"] = html.unescape(m_lic.group(1).strip())
+
+            m_src = re.search(r'Source Code</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
+            if m_src: mod_info["source_code"] = m_src.group(1).strip()
+
+            m_vt = re.search(r'VirusTotal[^<]*</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
+            if m_vt: mod_info["virustotal"] = m_vt.group(1).strip()
+
+            m_fika = re.search(r'(Fika\s+(?:Compatible[^\n<]*|Incompatible|Compatibility[^\n<]*))', raw_html, re.I)
+            if m_fika: mod_info["fika_status"] = m_fika.group(1).strip()
+
+            mod_info["has_ai"] = bool(re.search(r'Includes AI Generated Content', raw_html, re.I))
+
+        if isinstance(mod_info, dict):
+            m_guid = re.search(r'GUID</h3>[\s\S]{1,200}?<span[^>]*font-mono[^>]*>\s*([^\s<]+)', raw_html, re.I)
+            if m_guid: mod_info["guid"] = m_guid.group(1).strip()
+
+            m_lic = re.search(r'License</h3>[\s\S]{1,200}?<a[^>]*>\s*([^<\n]+)', raw_html, re.I)
+            if m_lic: mod_info["license"] = html.unescape(m_lic.group(1).strip())
+
+            m_src = re.search(r'Source Code</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
+            if m_src: mod_info["source_code"] = m_src.group(1).strip()
+
+            m_vt = re.search(r'VirusTotal[^<]*</h3>[\s\S]{1,300}?<a[^>]+href=["\']([^"\']+)["\']', raw_html, re.I)
+            if m_vt: mod_info["virustotal"] = m_vt.group(1).strip()
+
+            m_fika = re.search(r'(Fika\s+(?:Compatible[^\n<]*|Incompatible|Compatibility[^\n<]*))', raw_html, re.I)
+            if m_fika: mod_info["fika_status"] = m_fika.group(1).strip()
+
+            mod_info["has_ai"] = bool(re.search(r'Includes AI Generated Content', raw_html, re.I))
+
+        for m in re.finditer(r'<a[^>]+href=[\"\'](https://sp-mod\.com/mod/\d+/[^\'\"]+)[\"\'][^>]*>(.*?)</a>', raw_html, re.DOTALL):
+            link = m.group(1)
+            inner = m.group(2)
+            if link not in seen and link != url:
+                title_m = re.search(r'class=[\"\'][^\"\']*truncate[^\"\']*[\"\'][^>]*>\s*(.*?)\s*</p>', inner, re.DOTALL) or re.search(r'alt=[\"\']([^\"\']+)[\"\']', inner)
+                if title_m:
+                    clean_title = html.unescape(title_m.group(1).strip())
+                    seen.add(link)
+                    status, path = check_dep_status(clean_title)
+                    deps.append({
+                        "title": clean_title,
+                        "link": link,
+                        "status": status,
+                        "path": path,
+                        "installed": (status == "ENABLED")
+                    })
+    except Exception as e:
+        print(f"Sync dep fetch error for {url}: {e}")
+    return deps
+
+
+class DependencyFetcherThread(QThread):
+    fetched = Signal(dict, list)
+
+    def __init__(self, mod_info, parent=None):
+        super().__init__(parent)
+        self.mod_info = mod_info
+
+    def run(self):
+        deps = fetch_mod_dependencies_sync(self.mod_info)
+        self.fetched.emit(self.mod_info, deps)
+
+
+
+
+
+CONFIG_DIR = Path.home() / ".config" / "spt-mod-manager"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+PRESETS_DIR = CONFIG_DIR / "presets"
+CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
+CATALOG_CACHE_FILE = CACHE_DIR / "catalog.json"
+
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_DIR = Path.home() / ".config" / "spt-mod-manager"
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -433,6 +484,46 @@ def detect_cpu_core_allocation():
     }
 
 
+def audit_system_dependencies():
+    return {
+        "mangohud": shutil.which("mangohud") is not None or Path("/usr/bin/mangohud").exists(),
+        "taskset": shutil.which("taskset") is not None or Path("/usr/bin/taskset").exists(),
+        "vulkan": shutil.which("vulkaninfo") is not None or Path("/usr/bin/vulkaninfo").exists(),
+        "gamemode": shutil.which("gamemoded") is not None or shutil.which("gamemoderun") is not None or Path("/usr/bin/gamemoded").exists(),
+    }
+
+
+def find_svm_dir(spt_root=None):
+    if spt_root is None:
+        spt_root = SPT_ROOT
+    candidates = [
+        Path(spt_root) / "user" / "mods" / "[SVM] Server Value Modifier",
+        Path(spt_root) / "user" / "mods" / "ServerValueModifier",
+        Path(spt_root) / "SPT_Runtime" / "user" / "mods" / "[SVM] Server Value Modifier",
+        Path(spt_root) / "SPT_Runtime" / "user" / "mods" / "ServerValueModifier",
+        Path.home() / ".local/share/spt-mod-manager/staged/server/[SVM] Server Value Modifier"
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def is_svm_active_in_game(spt_root=None):
+    if not spt_root:
+        spt_root = SPT_ROOT
+    candidates = [
+        Path(spt_root) / "user" / "mods" / "[SVM] Server Value Modifier",
+        Path(spt_root) / "user" / "mods" / "ServerValueModifier",
+        Path(spt_root) / "SPT_Runtime" / "user" / "mods" / "[SVM] Server Value Modifier",
+        Path(spt_root) / "SPT_Runtime" / "user" / "mods" / "ServerValueModifier",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
 def detect_gpu_hardware():
     vendor = "UNKNOWN"
     gpu_name = "Unknown Graphics Card"
@@ -467,19 +558,6 @@ def detect_gpu_hardware():
     }
 
 
-def audit_system_dependencies():
-    has_gamemode_bin = shutil.which("gamemoded") is not None or shutil.which("gamemoderun") is not None
-    has_gamemode_lib = any(Path(p).exists() for p in [
-        "/usr/lib/libgamemode.so", "/usr/lib64/libgamemode.so",
-        "/usr/lib/x86_64-linux-gnu/libgamemode.so", "/usr/lib32/libgamemode.so",
-        "/usr/lib/libgamemode.so.0", "/usr/lib64/libgamemode.so.0",
-        "/usr/lib/x86_64-linux-gnu/libgamemode.so.0"
-    ])
-    return {
-        "mangohud": shutil.which("mangohud") is not None or Path("/usr/bin/mangohud").exists(),
-        "taskset": shutil.which("taskset") is not None or Path("/usr/bin/taskset").exists(),
-        "gamemode": has_gamemode_bin and has_gamemode_lib,
-    }
 
 
 def find_spt_root():
@@ -539,6 +617,11 @@ def find_best_catalog_match_global(name):
         return None
 
     ALIASES = {
+        "tyfonuifixes": "ui-fixes",
+        "uifixes": "ui-fixes",
+        "drakiaxyzquesttracker": "quest-tracker",
+        "deminvincibility": "invincibility",
+        "handsarenotbusy": "hands-are-not-busy",
         "tyfonuifixes": "ui-fixes",
         "uifixes": "ui-fixes",
         "drakiaxyzquesttracker": "quest-tracker",
@@ -640,10 +723,11 @@ def load_mod_meta(staged_path):
 class ModInstallerThread(QThread):
     finished = Signal(bool, str)
 
-    def __init__(self, archive_path, mod_info=None):
+    def __init__(self, archive_path, mod_info=None, excluded_files=None):
         super().__init__()
         self.archive_path = Path(archive_path)
         self.mod_info = mod_info
+        self.excluded_files = set(excluded_files) if excluded_files else set()
 
     def _save_staged_metadata(self, target_staged):
         if not target_staged.is_dir():
@@ -699,6 +783,16 @@ class ModInstallerThread(QThread):
             else:
                 self.finished.emit(False, "Unsupported archive format.")
                 return
+
+            # Purge user-excluded files (e.g. Greed.exe or unchecked files)
+            if self.excluded_files:
+                for p in list(temp_extract.rglob('*')):
+                    if p.is_file():
+                        rel_str = str(p.relative_to(temp_extract)).replace('\\', '/')
+                        filename = p.name
+                        if rel_str in self.excluded_files or filename in self.excluded_files or any(ex in rel_str for ex in self.excluded_files):
+                            try: p.unlink()
+                            except Exception: pass
 
             bepin_src = None
             user_mods_src = None
@@ -803,7 +897,7 @@ class ModInstallerThread(QThread):
                 except Exception:
                     pass
 
-            self.finished.emit(True, f"Successfully staged & symlinked {self.archive_path.name}")
+            self.finished.emit(True, f"Successfully staged && symlinked {self.archive_path.name}")
         except Exception as e:
             self.finished.emit(False, str(e))
 
@@ -896,7 +990,7 @@ class StageInstallDialog(QDialog):
         super().__init__(parent)
         self.archive_path = Path(archive_path)
         self.mod_info = mod_info
-        self.setWindowTitle(f"Stage & Install: {mod_info['title']}")
+        self.setWindowTitle(f"Stage && Install: {mod_info['title']}")
         self.resize(680, 500)
         self.setStyleSheet("""
             QDialog { background-color: #1e1e2e; color: #cdd6f4; }
@@ -1001,6 +1095,11 @@ def generate_html_stash_manifest(manifest):
         if len(raw_desc) > 240:
             desc += "..."
 
+        raw_desc = mod.get("description", "")
+        desc = html.escape(re.sub(r'<[^>]+>', '', raw_desc))[:240]
+        if len(raw_desc) > 240:
+            desc += "..."
+
         raw_link = mod.get("link")
         if not raw_link:
             query_name = urllib.parse.quote(mod.get("name", title))
@@ -1079,7 +1178,7 @@ def generate_html_stash_manifest(manifest):
             <h3>💡 Quick Import Instructions for SPT Stash</h3>
             <ol>
                 <li>Launch <b>SPT Stash</b> on your system.</li>
-                <li>Go to the <b>🎒 Presets & Manifests</b> tab (or <b>Installed Mods</b> tab).</li>
+                <li>Go to the <b>🎒 Presets && Manifests</b> tab (or <b>Installed Mods</b> tab).</li>
                 <li>Click <b>📥 Import Preset File</b> and select this file (<code id="manifest-filename">stash_manifest.html</code>).</li>
                 <li>Click <b>▶ Apply Preset to Game</b> — <b>SPT Stash</b> will instantly enable all included mods and 1-click download any missing ones!</li>
             </ol>
@@ -1103,6 +1202,8 @@ def generate_html_stash_manifest(manifest):
     </script>
 </body>
 </html>"""
+
+
 
 
 def load_config():
@@ -1266,6 +1367,12 @@ class SettingsDialog(QDialog):
         self.cfg["launcher_script"] = launcher
         save_config(self.cfg)
         self.accept()
+
+
+
+
+
+
 
 
 class ModItemDelegate(QStyledItemDelegate):
@@ -1563,18 +1670,24 @@ class SPTModManagerWindow(QMainWindow):
         self.tab_browse = QWidget()
         self.tab_installer = QWidget()
         self.tab_performance = QWidget()
+        self.tab_svm = QWidget()
+        self.tab_profile = QWidget()
 
         self.tabs.addTab(self.tab_installed, "Installed Mods")
         self.tabs.addTab(self.tab_presets, "🎒 Presets && Manifests")
         self.tabs.addTab(self.tab_browse, "Browse sp-mod.com (Forge)")
         self.tabs.addTab(self.tab_installer, "Install Local Mod Archive")
         self.tabs.addTab(self.tab_performance, "⚡ Linux Performance")
+        self.tabs.addTab(self.tab_svm, "🎛️ Server Rules && Values")
+        self.tabs.addTab(self.tab_profile, "👤 Profile Editor")
 
         self.setup_installed_tab()
         self.setup_presets_tab()
         self.setup_browse_tab()
         self.setup_installer_tab()
         self.setup_performance_tab()
+        self.setup_svm_tab()
+        self.setup_profile_editor_tab()
 
     # ------------------ Installed Mods Tab ------------------
     def setup_installed_tab(self):
@@ -1605,10 +1718,6 @@ class SPTModManagerWindow(QMainWindow):
         btn_import = QPushButton("📥 Import Manifest")
         btn_import.clicked.connect(self.import_stash_manifest)
         top_controls.addWidget(btn_import)
-
-        btn_install = QPushButton("➕ Install Archive (.zip/.7z)")
-        btn_install.clicked.connect(self.open_file_installer)
-        top_controls.addWidget(btn_install)
 
         layout.addLayout(top_controls)
 
@@ -1790,6 +1899,15 @@ class SPTModManagerWindow(QMainWindow):
 
         self.all_installed_mods = mods
         self.filter_installed_mods(self.installed_search.text())
+
+        if hasattr(self, 'remote_mods') and self.remote_mods and hasattr(self, 'table_browse'):
+            self.render_browse_catalog(self.remote_mods)
+
+        if hasattr(self, 'cmb_svm_preset'):
+            self.refresh_svm_presets_list()
+
+        if hasattr(self, 'list_presets') and self.list_presets.currentItem():
+            self.on_preset_selected()
 
         if hasattr(self, 'list_presets') and self.list_presets.currentItem():
             self.on_preset_selected()
@@ -2083,6 +2201,7 @@ class SPTModManagerWindow(QMainWindow):
             if update_mods_queue:
                 self.start_dependency_queue_download(update_mods_queue, None)
 
+
     def update_bulk_actions_bar(self):
         selected_mods = self.get_selected_installed_mods()
         cnt = len(selected_mods)
@@ -2336,6 +2455,8 @@ class SPTModManagerWindow(QMainWindow):
             self.load_installed_mods()
             QMessageBox.information(self, "Audit Auto-Fix", "✅ Dependency auto-fix process completed!")
 
+
+
     def delete_mod(self, mod):
         reply = QMessageBox.question(
             self, "Confirm Delete",
@@ -2344,7 +2465,7 @@ class SPTModManagerWindow(QMainWindow):
         )
         if reply == QMessageBox.Yes:
             try:
-                purge_mod_files_and_symlinks(mod["name"])
+                purge_mod_files_and_symlinks(mod)
                 self.load_installed_mods()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete mod: {e}")
@@ -2368,21 +2489,47 @@ class SPTModManagerWindow(QMainWindow):
             except Exception:
                 catalog_mods = []
 
+        ALIASES = {
+            "borkelrnvg": "borkels-realistic-night-vision-goggles",
+            "borkelrnvgserver": "borkels-realistic-night-vision-goggles",
+            "amandsgraphics": "amandss-graphics",
+            "amandssense": "amands-sense",
+            "sain": "sain-solarints-ai-modifications",
+            "solarintsainservermod": "sain-solarints-ai-modifications",
+            "boxesatref": "boxes-at-ref",
+            "svm": "server-value-modifier",
+            "tarkinladders": "climbable-ladders",
+            "tarkinhideoutuirevamp": "tarkin",
+            "rairaihiddencaches": "rais-hidden-caches",
+            "wttclientcommonlib": "wtt-commonlib",
+            "wttservercommonlib": "wtt-commonlib",
+            "moxopixelmenuoverhaul": "wtt-menu-overhaul",
+            "drakiaxyzwaypoints": "waypoints-expanded-navmesh",
+            "lacypvetweaks": "lacys-pve-tweaks"
+        }
+
         def find_best_catalog_match(name):
+            name_clean = re.sub(r'[^a-z0-9]', '', name.lower())
+            for alias_k, alias_v in ALIASES.items():
+                if alias_k in name_clean:
+                    for m in catalog_mods:
+                        if alias_v in m["link"].lower():
+                            return m
+
             clean_name = re.sub(r'([a-z])([A-Z])', r'\1 \2', re.sub(r'\.dll$', '', name, flags=re.I))
             target = re.sub(r'[^a-z0-9]', '', clean_name.lower())
             target_stripped = re.sub(r'^[a-z0-9]+[\.\-_]', '', clean_name, flags=re.I)
             target_stripped = re.sub(r'[^a-z0-9]', '', target_stripped.lower())
 
             for m in catalog_mods:
-                m_clean = re.sub(r'[^a-z0-9]', '', m['title'].lower())
-                m_slug = re.sub(r'[^a-z0-9]', '', m['link'].split('/')[-1].lower())
+                m_clean = re.sub(r'[^a-z0-9]', '', m["title"].lower())
+                m_slug = re.sub(r'[^a-z0-9]', '', m["link"].split("/")[-1].lower())
                 if target in (m_clean, m_slug) or target_stripped in (m_clean, m_slug):
                     return m
 
             for m in catalog_mods:
-                m_clean = re.sub(r'[^a-z0-9]', '', m['title'].lower())
-                m_slug = re.sub(r'[^a-z0-9]', '', m['link'].split('/')[-1].lower())
+                m_clean = re.sub(r'[^a-z0-9]', '', m["title"].lower())
+                m_slug = re.sub(r'[^a-z0-9]', '', m["link"].split("/")[-1].lower())
                 if len(target_stripped) >= 4 and (target_stripped in m_clean or m_clean in target_stripped or target_stripped in m_slug):
                     return m
             return None
@@ -2510,6 +2657,10 @@ class SPTModManagerWindow(QMainWindow):
             if reply == QMessageBox.Yes:
                 self.start_dependency_queue_download(missing_mods, None)
                 return
+
+        QMessageBox.information(self, "Import Complete", "✅ Stash Manifest successfully applied!")
+
+
 
     # ------------------ Presets Tab ------------------
     def setup_presets_tab(self):
@@ -2692,7 +2843,7 @@ class SPTModManagerWindow(QMainWindow):
                     is_staged = (st == "STAGED_DISABLED" or is_enabled)
 
             if is_enabled:
-                st_badge = "<span style='color:#a6e3a1; font-weight:bold;'>🟢 Installed & Enabled</span>"
+                st_badge = "<span style='color:#a6e3a1; font-weight:bold;'>🟢 Installed && Enabled</span>"
             elif is_staged:
                 st_badge = "<span style='color:#fab387; font-weight:bold;'>🟡 Stashed (Disabled)</span>"
             else:
@@ -3171,7 +3322,7 @@ class SPTModManagerWindow(QMainWindow):
             for d in deps:
                 st = d.get("status")
                 if st == "ENABLED" or d.get("installed"):
-                    status_text = "<span style='color:#a6e3a1; font-weight:bold;'>(✅ Installed & Enabled)</span>"
+                    status_text = "<span style='color:#a6e3a1; font-weight:bold;'>(✅ Installed && Enabled)</span>"
                 elif st == "STAGED_DISABLED":
                     status_text = "<span style='color:#fab387; font-weight:bold;'>(⚠️ In Stash, Disabled — Auto-enables on Download)</span>"
                 else:
@@ -3283,7 +3434,7 @@ class SPTModManagerWindow(QMainWindow):
             )
             if reply == QMessageBox.Cancel:
                 self.btn_download_mod.setEnabled(True)
-                self.btn_download_mod.setText("⬇️ Download & Install Mod")
+                self.btn_download_mod.setText("⬇️ Download && Install Mod")
                 return
             if reply == QMessageBox.Yes:
                 for dep in staged_disabled_deps:
@@ -3297,6 +3448,7 @@ class SPTModManagerWindow(QMainWindow):
                     os.symlink(str(staged_path), str(live_link))
                     dep["status"] = "ENABLED"
                     dep["installed"] = True
+                self.load_installed_mods()
                 self.load_installed_mods()
 
         missing_deps = [d for d in deps if d.get("status") == "MISSING" or (not d.get("installed") and d.get("status") != "ENABLED")]
@@ -3313,7 +3465,7 @@ class SPTModManagerWindow(QMainWindow):
             )
             if reply == QMessageBox.Cancel:
                 self.btn_download_mod.setEnabled(True)
-                self.btn_download_mod.setText("⬇️ Download & Install Mod")
+                self.btn_download_mod.setText("⬇️ Download && Install Mod")
                 return
             if reply == QMessageBox.Yes:
                 self.start_dependency_queue_download(missing_deps, mod)
@@ -3375,7 +3527,7 @@ class SPTModManagerWindow(QMainWindow):
         if not success:
             QMessageBox.critical(self, "Dependency Download Error", f"Failed to download dependency '{dep_mod['title']}': {message}")
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download & Install Mod")
+            self.btn_download_mod.setText("⬇️ Download && Install Mod")
             return
 
         stage_dialog = StageInstallDialog(archive_path, dep_mod, parent=self)
@@ -3389,7 +3541,7 @@ class SPTModManagerWindow(QMainWindow):
                 try: archive_path.unlink()
                 except Exception: pass
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download & Install Mod")
+            self.btn_download_mod.setText("⬇️ Download && Install Mod")
             self.dep_queue = []
             self.target_mod_afterdeps = None
 
@@ -3401,7 +3553,7 @@ class SPTModManagerWindow(QMainWindow):
         if not success:
             QMessageBox.critical(self, "Dependency Installation Error", f"Failed to install dependency: {message}")
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download & Install Mod")
+            self.btn_download_mod.setText("⬇️ Download && Install Mod")
             return
 
         self.load_installed_mods()
@@ -3409,7 +3561,7 @@ class SPTModManagerWindow(QMainWindow):
 
     def on_mod_downloaded(self, success, message, archive_path, mod_info):
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download & Install Mod")
+        self.btn_download_mod.setText("⬇️ Download && Install Mod")
 
         if not success:
             QMessageBox.critical(self, "Download Error", f"Failed to download mod: {message}")
@@ -3489,7 +3641,7 @@ class SPTModManagerWindow(QMainWindow):
         # Header Title & Hardware Detection Banner
         top_header = QHBoxLayout()
         header_v = QVBoxLayout()
-        lbl_title = QLabel("⚡ Linux Performance & Game Launch Tuning")
+        lbl_title = QLabel("⚡ Linux Performance && Game Launch Tuning")
         lbl_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #89b4fa;")
         lbl_sub = QLabel("All performance optimizations are OFF by default. Enable recommended driver flags for your hardware.")
         lbl_sub.setStyleSheet("color: #a6adc8; font-size: 11px;")
@@ -3551,11 +3703,11 @@ class SPTModManagerWindow(QMainWindow):
         grid.addWidget(card_fsr4, 0, 1)
 
         # Card 3: DXVK Async & RADV (1, 0)
-        card_dxvk = QGroupBox("🚀 DXVK Async & Shader Caching")
+        card_dxvk = QGroupBox("🚀 DXVK Async && Shader Caching")
         card_dxvk.setStyleSheet(card_style.replace("%COLOR%", "#f9e2af"))
         d_lay = QVBoxLayout(card_dxvk)
         d_lay.setSpacing(6)
-        dxvk_label = "Enable DXVK Async & State Cache (DXVK_ASYNC=1, RADV_PERFTEST=gpl)" if gpu_info["vendor"] == "AMD" else "Enable DXVK Async & State Cache (DXVK_ASYNC=1)"
+        dxvk_label = "Enable DXVK Async && State Cache (DXVK_ASYNC=1, RADV_PERFTEST=gpl)" if gpu_info["vendor"] == "AMD" else "Enable DXVK Async && State Cache (DXVK_ASYNC=1)"
         self.chk_perf_dxvk = QCheckBox(dxvk_label)
         self.chk_perf_dxvk.setChecked(cfg.get("enable_dxvk_async", False))
         self.chk_perf_dxvk.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
@@ -3641,10 +3793,10 @@ class SPTModManagerWindow(QMainWindow):
         
         g_row = QHBoxLayout()
         self.chk_perf_gamemode = QCheckBox("Enable GameMode Wrapper (gamemoderun)")
-        self.chk_perf_gamemode.setChecked(cfg.get("enable_gamemode", False) and deps["gamemode"])
+        self.chk_perf_gamemode.setChecked(cfg.get("enable_gamemode", False) and deps.get("gamemode", False))
         self.chk_perf_gamemode.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
         
-        lbl_g_status = QLabel("<span style='color: #a6e3a1; font-weight: bold;'>🟢 gamemoded</span>" if deps["gamemode"] else "<span style='color: #f38ba8; font-weight: bold;'>⚠️ missing</span>")
+        lbl_g_status = QLabel("<span style='color: #a6e3a1; font-weight: bold;'>🟢 gamemoded</span>" if deps.get("gamemode", False) else "<span style='color: #f38ba8; font-weight: bold;'>⚠️ missing</span>")
         g_row.addWidget(self.chk_perf_gamemode)
         g_row.addStretch()
         g_row.addWidget(lbl_g_status)
@@ -3660,7 +3812,7 @@ class SPTModManagerWindow(QMainWindow):
         layout.addStretch()
 
         # Apply Button
-        btn_apply = QPushButton("⚡ Save & Apply to launcher.sh & server.sh")
+        btn_apply = QPushButton("⚡ Save && Apply to launcher.sh && server.sh")
         btn_apply.setFixedHeight(38)
         btn_apply.setStyleSheet("""
             QPushButton { background-color: #a6e3a1; color: #11111b; font-size: 13px; font-weight: bold; border-radius: 6px; padding: 6px 16px; }
@@ -3721,6 +3873,903 @@ class SPTModManagerWindow(QMainWindow):
         QMessageBox.information(self, "🤖 CPU Allocation Auto-Detected",
                                 f"Detected CPU: {info['model_name']}\nTotal Threads: {info['threads']}\n\nRecommended Server Cores: {info['server_cores']}\nRecommended Client Cores: {info['client_cores']}\n\nValues populated into Settings!")
 
+    # ------------------ Native Linux SVM Tab Implementation ------------------
+    def setup_svm_tab(self):
+        layout = QVBoxLayout(self.tab_svm)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        # Header Bar: Preset selection & Action Buttons
+        header_card = QFrame()
+        header_card.setStyleSheet("QFrame { background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; }")
+        header_lay = QHBoxLayout(header_card)
+        header_lay.setContentsMargins(10, 8, 10, 8)
+
+        lbl_p_title = QLabel("<b>Server Preset:</b>")
+        lbl_p_title.setStyleSheet("color: #cdd6f4; font-size: 13px;")
+        header_lay.addWidget(lbl_p_title)
+
+        self.cmb_svm_preset = QComboBox()
+        self.cmb_svm_preset.setMinimumWidth(180)
+        self.cmb_svm_preset.setStyleSheet("QComboBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        self.cmb_svm_preset.currentIndexChanged.connect(self.on_svm_preset_changed)
+        header_lay.addWidget(self.cmb_svm_preset)
+
+        btn_new_preset = QPushButton("➕ New")
+        btn_new_preset.setStyleSheet("QPushButton { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; font-weight: bold; padding: 5px 12px; border-radius: 6px; } QPushButton:hover { background-color: #45475a; }")
+        btn_new_preset.clicked.connect(self.create_new_svm_preset)
+        header_lay.addWidget(btn_new_preset)
+
+        btn_save_preset = QPushButton("💾 Save Preset")
+        btn_save_preset.setStyleSheet("QPushButton { background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 5px 14px; border-radius: 6px; } QPushButton:hover { background-color: #b4befe; }")
+        btn_save_preset.clicked.connect(self.save_current_svm_preset)
+        header_lay.addWidget(btn_save_preset)
+
+        btn_delete_preset = QPushButton("🗑 Delete")
+        btn_delete_preset.setStyleSheet("QPushButton { background-color: #313244; color: #f38ba8; border: 1px solid #542f3e; font-weight: bold; padding: 5px 12px; border-radius: 6px; } QPushButton:hover { background-color: #4a2c3b; border-color: #f38ba8; }")
+        btn_delete_preset.clicked.connect(self.delete_current_svm_preset)
+        header_lay.addWidget(btn_delete_preset)
+
+        btn_reset_defaults = QPushButton("↺ Reset Defaults")
+        btn_reset_defaults.setStyleSheet("QPushButton { background-color: #313244; color: #f38ba8; border: 1px solid #542f3e; font-weight: bold; padding: 5px 14px; border-radius: 6px; } QPushButton:hover { background-color: #4a2c3b; border-color: #f38ba8; }")
+        btn_reset_defaults.clicked.connect(self.reset_svm_preset_to_defaults)
+        header_lay.addWidget(btn_reset_defaults)
+
+        btn_apply_active = QPushButton("⚡ Save && Set Active")
+        btn_apply_active.setStyleSheet("QPushButton { background-color: #a6e3a1; color: #11111b; font-weight: bold; padding: 5px 16px; border-radius: 6px; } QPushButton:hover { background-color: #94e2d5; }")
+        btn_apply_active.clicked.connect(self.apply_svm_preset_active)
+        header_lay.addWidget(btn_apply_active)
+
+        header_lay.addStretch()
+
+        self.lbl_svm_active_badge = QLabel("Active: None")
+        self.lbl_svm_active_badge.setStyleSheet("padding: 4px 10px; border-radius: 10px; background-color: #313244; color: #cdd6f4; font-weight: bold; font-size: 12px;")
+        header_lay.addWidget(self.lbl_svm_active_badge)
+
+        layout.addWidget(header_card)
+
+        # Categorized Sub-Tabs
+        self.svm_subtabs = QTabWidget()
+        self.svm_subtabs.setStyleSheet("QTabWidget::pane { border: 1px solid #313244; background-color: #181825; border-radius: 8px; } QTabBar::tab { background: #1e1e2e; color: #a6adc8; padding: 8px 16px; border-top-left-radius: 6px; border-top-right-radius: 6px; font-weight: bold; } QTabBar::tab:selected { background: #313244; color: #89b4fa; border-bottom: 2px solid #89b4fa; }")
+        layout.addWidget(self.svm_subtabs)
+
+        self.tab_svm_items = QWidget()
+        self.tab_svm_hideout = QWidget()
+        self.tab_svm_raids = QWidget()
+        self.tab_svm_traders = QWidget()
+        self.tab_svm_player = QWidget()
+
+        self.svm_subtabs.addTab(self.tab_svm_items, "🎒 Items && Stacks")
+        self.svm_subtabs.addTab(self.tab_svm_hideout, "🏠 Hideout && Stash")
+        self.svm_subtabs.addTab(self.tab_svm_raids, "⏳ Raids && Extracts")
+        self.svm_subtabs.addTab(self.tab_svm_traders, "🏪 Traders && Flea")
+        self.svm_subtabs.addTab(self.tab_svm_player, "👤 Player && Health")
+
+        self.setup_svm_items_subtab()
+        self.setup_svm_hideout_subtab()
+        self.setup_svm_raids_subtab()
+        self.setup_svm_traders_subtab()
+        self.setup_svm_player_subtab()
+
+        self.current_svm_data = {}
+        self.refresh_svm_presets_list()
+
+    def setup_svm_items_subtab(self):
+        lay = QVBoxLayout(self.tab_svm_items)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        container = QWidget()
+        scroll.setWidget(container)
+        lay.addWidget(scroll)
+
+        c_lay = QVBoxLayout(container)
+        c_lay.setSpacing(12)
+
+        grp_stacks = QGroupBox("Currency && Item Stack Limits")
+        grp_stacks.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_stacks = QFormLayout(grp_stacks)
+        f_stacks.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_rub = QSpinBox()
+        self.spin_svm_rub.setRange(50000, 100000000)
+        self.spin_svm_rub.setSingleStep(50000)
+        self.spin_svm_rub.setValue(1000000)
+        f_stacks.addRow("Max Rubles Stack:", self.spin_svm_rub)
+
+        self.spin_svm_usd = QSpinBox()
+        self.spin_svm_usd.setRange(1000, 50000000)
+        self.spin_svm_usd.setSingleStep(5000)
+        self.spin_svm_usd.setValue(50000)
+        f_stacks.addRow("Max Dollars Stack:", self.spin_svm_usd)
+
+        self.spin_svm_eur = QSpinBox()
+        self.spin_svm_eur.setRange(1000, 50000000)
+        self.spin_svm_eur.setSingleStep(5000)
+        self.spin_svm_eur.setValue(50000)
+        f_stacks.addRow("Max Euros Stack:", self.spin_svm_eur)
+
+        self.spin_svm_gp = QSpinBox()
+        self.spin_svm_gp.setRange(10, 100000)
+        self.spin_svm_gp.setValue(100)
+        f_stacks.addRow("Max GP Coins Stack:", self.spin_svm_gp)
+
+        self.spin_svm_backpack_depth = QSpinBox()
+        self.spin_svm_backpack_depth.setRange(1, 99)
+        self.spin_svm_backpack_depth.setValue(7)
+        f_stacks.addRow("Backpack Stacking Depth:", self.spin_svm_backpack_depth)
+
+        self.spin_svm_item_price_mult = QDoubleSpinBox()
+        self.spin_svm_item_price_mult.setRange(0.1, 50.0)
+        self.spin_svm_item_price_mult.setSingleStep(0.1)
+        self.spin_svm_item_price_mult.setValue(1.0)
+        f_stacks.addRow("Loot Sell Price Multiplier:", self.spin_svm_item_price_mult)
+
+        self.spin_svm_key_use_mult = QSpinBox()
+        self.spin_svm_key_use_mult.setRange(1, 100)
+        self.spin_svm_key_use_mult.setValue(1)
+        f_stacks.addRow("Key Use Multiplier:", self.spin_svm_key_use_mult)
+
+        c_lay.addWidget(grp_stacks)
+
+        grp_examine = QGroupBox("Examine && Restrictions Toggles")
+        grp_examine.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        v_ex = QVBoxLayout(grp_examine)
+
+        self.chk_svm_all_examined = QCheckBox("Examine All Items Initially (No manual examine required)")
+        self.chk_svm_examine_keys = QCheckBox("Examine All Keys && Keycards Initially")
+        self.chk_svm_no_sec_filters = QCheckBox("Remove Secure Container Item Restrictions (Put weapons/thermal in Pouch)")
+        self.chk_svm_no_raid_restr = QCheckBox("Remove In-Raid Item Carry Restrictions")
+        self.chk_svm_no_backpack_restr = QCheckBox("Remove Backpack Stacking Restrictions")
+        self.chk_svm_infinite_keys = QCheckBox("Infinite Key Uses (Keys never break)")
+
+        for chk in [self.chk_svm_all_examined, self.chk_svm_examine_keys, self.chk_svm_no_sec_filters, self.chk_svm_no_raid_restr, self.chk_svm_no_backpack_restr, self.chk_svm_infinite_keys]:
+            chk.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
+            v_ex.addWidget(chk)
+
+        c_lay.addWidget(grp_examine)
+        c_lay.addStretch()
+
+    def setup_svm_hideout_subtab(self):
+        lay = QVBoxLayout(self.tab_svm_hideout)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        container = QWidget()
+        scroll.setWidget(container)
+        lay.addWidget(scroll)
+
+        c_lay = QVBoxLayout(container)
+        c_lay.setSpacing(12)
+
+        grp_stash = QGroupBox("Custom Stash Sizes (Rows)")
+        grp_stash.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_stash = QFormLayout(grp_stash)
+        f_stash.setLabelAlignment(Qt.AlignRight)
+
+        self.chk_svm_enable_stash = QCheckBox("Enable Custom Stash Sizes")
+        self.chk_svm_enable_stash.setStyleSheet("QCheckBox { color: #a6e3a1; font-weight: bold; font-size: 13px; }")
+        f_stash.addRow(self.chk_svm_enable_stash)
+
+        self.spin_svm_stash1 = QSpinBox()
+        self.spin_svm_stash1.setRange(10, 500)
+        self.spin_svm_stash1.setValue(30)
+        f_stash.addRow("Stash Level 1 Rows:", self.spin_svm_stash1)
+
+        self.spin_svm_stash2 = QSpinBox()
+        self.spin_svm_stash2.setRange(10, 500)
+        self.spin_svm_stash2.setValue(40)
+        f_stash.addRow("Stash Level 2 Rows:", self.spin_svm_stash2)
+
+        self.spin_svm_stash3 = QSpinBox()
+        self.spin_svm_stash3.setRange(10, 500)
+        self.spin_svm_stash3.setValue(50)
+        f_stash.addRow("Stash Level 3 Rows:", self.spin_svm_stash3)
+
+        self.spin_svm_stash4 = QSpinBox()
+        self.spin_svm_stash4.setRange(10, 500)
+        self.spin_svm_stash4.setValue(68)
+        f_stash.addRow("Stash Level 4 Rows:", self.spin_svm_stash4)
+
+        c_lay.addWidget(grp_stash)
+
+        grp_const = QGroupBox("Construction && Production Speeds")
+        grp_const.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_const = QFormLayout(grp_const)
+        f_const.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_const_mult = QDoubleSpinBox()
+        self.spin_svm_const_mult.setRange(0.01, 10.0)
+        self.spin_svm_const_mult.setSingleStep(0.1)
+        self.spin_svm_const_mult.setValue(1.0)
+        f_const.addRow("Hideout Construction Multiplier (lower = faster):", self.spin_svm_const_mult)
+
+        self.spin_svm_prod_mult = QDoubleSpinBox()
+        self.spin_svm_prod_mult.setRange(0.01, 10.0)
+        self.spin_svm_prod_mult.setSingleStep(0.1)
+        self.spin_svm_prod_mult.setValue(1.0)
+        f_const.addRow("Hideout Crafting Multiplier (lower = faster):", self.spin_svm_prod_mult)
+
+        self.spin_svm_btc_time = QSpinBox()
+        self.spin_svm_btc_time.setRange(1, 10000)
+        self.spin_svm_btc_time.setValue(2416)
+        f_const.addRow("Bitcoin Craft Time (Minutes):", self.spin_svm_btc_time)
+
+        self.spin_svm_max_btc = QSpinBox()
+        self.spin_svm_max_btc.setRange(1, 100)
+        self.spin_svm_max_btc.setValue(3)
+        f_const.addRow("Max Bitcoins in Farm:", self.spin_svm_max_btc)
+
+        self.chk_svm_no_const_req = QCheckBox("Remove Construction Item && Skill Requirements")
+        self.chk_svm_no_const_req.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
+        f_const.addRow(self.chk_svm_no_const_req)
+
+        c_lay.addWidget(grp_const)
+        c_lay.addStretch()
+
+    def setup_svm_raids_subtab(self):
+        lay = QVBoxLayout(self.tab_svm_raids)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        container = QWidget()
+        scroll.setWidget(container)
+        lay.addWidget(scroll)
+
+        c_lay = QVBoxLayout(container)
+        c_lay.setSpacing(12)
+
+        grp_raid = QGroupBox("Raid Timers && Extractions")
+        grp_raid.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_raid = QFormLayout(grp_raid)
+        f_raid.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_raid_time = QDoubleSpinBox()
+        self.spin_svm_raid_time.setRange(0.1, 10.0)
+        self.spin_svm_raid_time.setSingleStep(0.2)
+        self.spin_svm_raid_time.setValue(1.0)
+        f_raid.addRow("Raid Length Multiplier (1.0 = normal, 2.0 = 2x longer):", self.spin_svm_raid_time)
+
+        self.chk_svm_all_extracts = QCheckBox("All Extracts/Exfils Always Open && Available")
+        self.chk_svm_no_extract_req = QCheckBox("Remove Extraction Requirements (No key/money/gear needed)")
+        self.chk_svm_save_quest_items = QCheckBox("Save Quest Items in Inventory on Death")
+
+        for chk in [self.chk_svm_all_extracts, self.chk_svm_no_extract_req, self.chk_svm_save_quest_items]:
+            chk.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
+            f_raid.addRow(chk)
+
+        c_lay.addWidget(grp_raid)
+
+        grp_ins = QGroupBox("Insurance Return Settings")
+        grp_ins.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_ins = QFormLayout(grp_ins)
+        f_ins.setLabelAlignment(Qt.AlignRight)
+
+        self.chk_svm_enable_insurance = QCheckBox("Enable Custom Insurance Return Settings")
+        self.chk_svm_enable_insurance.setStyleSheet("QCheckBox { color: #a6e3a1; font-weight: bold; font-size: 13px; }")
+        f_ins.addRow(self.chk_svm_enable_insurance)
+
+        self.spin_svm_ins_min = QSpinBox()
+        self.spin_svm_ins_min.setRange(0, 168)
+        self.spin_svm_ins_min.setValue(12)
+        f_ins.addRow("Insurance Return Min Hours:", self.spin_svm_ins_min)
+
+        self.spin_svm_ins_max = QSpinBox()
+        self.spin_svm_ins_max.setRange(0, 168)
+        self.spin_svm_ins_max.setValue(24)
+        f_ins.addRow("Insurance Return Max Hours:", self.spin_svm_ins_max)
+
+        self.spin_svm_ins_chance = QSpinBox()
+        self.spin_svm_ins_chance.setRange(1, 100)
+        self.spin_svm_ins_chance.setValue(100)
+        f_ins.addRow("Insurance Return Chance %:", self.spin_svm_ins_chance)
+
+        c_lay.addWidget(grp_ins)
+        c_lay.addStretch()
+
+    def setup_svm_traders_subtab(self):
+        lay = QVBoxLayout(self.tab_svm_traders)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        container = QWidget()
+        scroll.setWidget(container)
+        lay.addWidget(scroll)
+
+        c_lay = QVBoxLayout(container)
+        c_lay.setSpacing(12)
+
+        grp_trader = QGroupBox("Trader Rules && Restock")
+        grp_trader.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_trader = QFormLayout(grp_trader)
+        f_trader.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_restock_time = QSpinBox()
+        self.spin_svm_restock_time.setRange(1, 1440)
+        self.spin_svm_restock_time.setValue(60)
+        f_trader.addRow("Trader Restock Time (Minutes):", self.spin_svm_restock_time)
+
+        self.spin_svm_trader_markup = QDoubleSpinBox()
+        self.spin_svm_trader_markup.setRange(0.1, 10.0)
+        self.spin_svm_trader_markup.setSingleStep(0.1)
+        self.spin_svm_trader_markup.setValue(1.0)
+        f_trader.addRow("Trader Markup / Price Multiplier:", self.spin_svm_trader_markup)
+
+        c_lay.addWidget(grp_trader)
+
+        grp_flea = QGroupBox("Flea Market Rules")
+        grp_flea.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_flea = QFormLayout(grp_flea)
+        f_flea.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_flea_min_level = QSpinBox()
+        self.spin_svm_flea_min_level.setRange(1, 70)
+        self.spin_svm_flea_min_level.setValue(15)
+        f_flea.addRow("Flea Market Min Player Level:", self.spin_svm_flea_min_level)
+
+        self.chk_svm_flea_no_fir = QCheckBox("Allow Selling Non-FIR Items on Flea Market")
+        self.chk_svm_flea_no_fir.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
+        f_flea.addRow(self.chk_svm_flea_no_fir)
+
+        c_lay.addWidget(grp_flea)
+        c_lay.addStretch()
+
+    def setup_svm_player_subtab(self):
+        lay = QVBoxLayout(self.tab_svm_player)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        container = QWidget()
+        scroll.setWidget(container)
+        lay.addWidget(scroll)
+
+        c_lay = QVBoxLayout(container)
+        c_lay.setSpacing(12)
+
+        grp_hp = QGroupBox("PMC Body Part Max Health (HP)")
+        grp_hp.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_hp = QFormLayout(grp_hp)
+        f_hp.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_hp_head = QSpinBox()
+        self.spin_svm_hp_head.setRange(10, 1000)
+        self.spin_svm_hp_head.setValue(35)
+        f_hp.addRow("Head Max HP:", self.spin_svm_hp_head)
+
+        self.spin_svm_hp_chest = QSpinBox()
+        self.spin_svm_hp_chest.setRange(10, 1000)
+        self.spin_svm_hp_chest.setValue(85)
+        f_hp.addRow("Thorax Max HP:", self.spin_svm_hp_chest)
+
+        self.spin_svm_hp_stomach = QSpinBox()
+        self.spin_svm_hp_stomach.setRange(10, 1000)
+        self.spin_svm_hp_stomach.setValue(70)
+        f_hp.addRow("Stomach Max HP:", self.spin_svm_hp_stomach)
+
+        self.spin_svm_hp_arms = QSpinBox()
+        self.spin_svm_hp_arms.setRange(10, 1000)
+        self.spin_svm_hp_arms.setValue(60)
+        f_hp.addRow("Arms Max HP:", self.spin_svm_hp_arms)
+
+        self.spin_svm_hp_legs = QSpinBox()
+        self.spin_svm_hp_legs.setRange(10, 1000)
+        self.spin_svm_hp_legs.setValue(65)
+        f_hp.addRow("Legs Max HP:", self.spin_svm_hp_legs)
+
+        c_lay.addWidget(grp_hp)
+
+        grp_xp = QGroupBox("⭐ Skill && Experience Multipliers")
+        grp_xp.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_xp = QFormLayout(grp_xp)
+        f_xp.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_raid_xp = QDoubleSpinBox()
+        self.spin_svm_raid_xp.setRange(0.1, 100.0)
+        self.spin_svm_raid_xp.setSingleStep(0.5)
+        self.spin_svm_raid_xp.setValue(1.0)
+        f_xp.addRow("Overall Raid XP Multiplier:", self.spin_svm_raid_xp)
+
+        self.spin_svm_loot_xp = QDoubleSpinBox()
+        self.spin_svm_loot_xp.setRange(0.1, 100.0)
+        self.spin_svm_loot_xp.setSingleStep(0.5)
+        self.spin_svm_loot_xp.setValue(1.0)
+        f_xp.addRow("Looting XP Multiplier:", self.spin_svm_loot_xp)
+
+        self.spin_svm_examine_xp = QDoubleSpinBox()
+        self.spin_svm_examine_xp.setRange(0.1, 100.0)
+        self.spin_svm_examine_xp.setSingleStep(0.5)
+        self.spin_svm_examine_xp.setValue(1.0)
+        f_xp.addRow("Examine Item XP Multiplier:", self.spin_svm_examine_xp)
+
+        self.spin_svm_skill_xp = QDoubleSpinBox()
+        self.spin_svm_skill_xp.setRange(0.1, 100.0)
+        self.spin_svm_skill_xp.setSingleStep(0.5)
+        self.spin_svm_skill_xp.setValue(1.0)
+        f_xp.addRow("Skill Leveling XP Multiplier:", self.spin_svm_skill_xp)
+
+        c_lay.addWidget(grp_xp)
+
+        grp_meta = QGroupBox("💧 Metabolism (Hunger && Thirst Rates)")
+        grp_meta.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_meta = QFormLayout(grp_meta)
+        f_meta.setLabelAlignment(Qt.AlignRight)
+
+        self.spin_svm_energy_loss = QDoubleSpinBox()
+        self.spin_svm_energy_loss.setRange(0.01, 50.0)
+        self.spin_svm_energy_loss.setSingleStep(0.1)
+        self.spin_svm_energy_loss.setValue(1.0)
+        f_meta.addRow("Hunger / Energy Loss Rate (1.0 = Default, 0.01 = Min / Near Zero):", self.spin_svm_energy_loss)
+
+        self.spin_svm_hydration_loss = QDoubleSpinBox()
+        self.spin_svm_hydration_loss.setRange(0.01, 50.0)
+        self.spin_svm_hydration_loss.setSingleStep(0.1)
+        self.spin_svm_hydration_loss.setValue(1.0)
+        f_meta.addRow("Thirst / Hydration Loss Rate (1.0 = Default, 0.01 = Min / Near Zero):", self.spin_svm_hydration_loss)
+
+        c_lay.addWidget(grp_meta)
+
+        grp_stamina = QGroupBox("🏃 Stamina && Endurance")
+        grp_stamina.setStyleSheet("QGroupBox { color: #89b4fa; font-weight: bold; border: 1px solid #313244; border-radius: 6px; margin-top: 6px; padding-top: 12px; }")
+        f_stam = QFormLayout(grp_stamina)
+        f_stam.setLabelAlignment(Qt.AlignRight)
+
+        self.chk_svm_unlimited_stamina = QCheckBox("Enable Unlimited Stamina")
+        self.chk_svm_unlimited_stamina.setStyleSheet("QCheckBox { color: #a6e3a1; font-weight: bold; }")
+        f_stam.addRow("Unlimited Stamina Mode:", self.chk_svm_unlimited_stamina)
+
+        self.spin_svm_sprint_drain = QDoubleSpinBox()
+        self.spin_svm_sprint_drain.setRange(0.01, 50.0)
+        self.spin_svm_sprint_drain.setSingleStep(0.1)
+        self.spin_svm_sprint_drain.setValue(1.0)
+        f_stam.addRow("Sprint Stamina Drain Rate (1.0 = Default, 0.01 = Min):", self.spin_svm_sprint_drain)
+
+        self.spin_svm_aim_drain = QDoubleSpinBox()
+        self.spin_svm_aim_drain.setRange(0.01, 50.0)
+        self.spin_svm_aim_drain.setSingleStep(0.1)
+        self.spin_svm_aim_drain.setValue(1.0)
+        f_stam.addRow("Aiming / Arm Stamina Drain Rate (1.0 = Default, 0.01 = Min):", self.spin_svm_aim_drain)
+
+        c_lay.addWidget(grp_stamina)
+        c_lay.addStretch()
+
+    # ------------------ SVM Preset Logic & Handlers ------------------
+    def refresh_svm_presets_list(self):
+        active_mod_dir = is_svm_active_in_game(SPT_ROOT)
+        svm_dir = find_svm_dir(SPT_ROOT)
+
+        self.cmb_svm_preset.blockSignals(True)
+        self.cmb_svm_preset.clear()
+
+        if not active_mod_dir:
+            self.lbl_svm_active_badge.setText("Rules Mod Not Installed")
+            self.lbl_svm_active_badge.setStyleSheet("padding: 4px 10px; border-radius: 10px; background-color: #f38ba8; color: #11111b; font-weight: bold;")
+            if svm_dir and (svm_dir / "Presets").exists():
+                for pf in sorted((svm_dir / "Presets").glob("*.json")):
+                    self.cmb_svm_preset.addItem(pf.stem)
+            if self.cmb_svm_preset.count() == 0:
+                self.cmb_svm_preset.addItem("Noname")
+            self.cmb_svm_preset.blockSignals(False)
+            self.load_selected_svm_preset()
+            return
+
+        presets_dir = active_mod_dir / "Presets"
+        loader_file = active_mod_dir / "Loader" / "loader.json"
+
+        active_name = "Noname"
+        if loader_file.exists():
+            try:
+                l_data = json.loads(loader_file.read_text(encoding="utf-8-sig"))
+                raw_val = l_data.get("CurrentlySelectedPreset")
+                if raw_val and str(raw_val).lower() not in ("none", "null", ""):
+                    active_name = str(raw_val).replace(".json", "")
+            except Exception:
+                pass
+
+        if presets_dir.exists():
+            preset_files = sorted(presets_dir.glob("*.json"))
+            for pf in preset_files:
+                self.cmb_svm_preset.addItem(pf.stem)
+
+        if self.cmb_svm_preset.count() == 0:
+            self.cmb_svm_preset.addItem("Noname")
+
+        idx = self.cmb_svm_preset.findText(active_name)
+        if idx >= 0:
+            self.cmb_svm_preset.setCurrentIndex(idx)
+
+        self.lbl_svm_active_badge.setText(f"Active: {active_name}")
+        self.lbl_svm_active_badge.setStyleSheet("padding: 4px 10px; border-radius: 10px; background-color: #a6e3a1; color: #11111b; font-weight: bold;")
+        self.cmb_svm_preset.blockSignals(False)
+
+        self.load_selected_svm_preset()
+
+    def on_svm_preset_changed(self):
+        self.load_selected_svm_preset()
+
+    def load_selected_svm_preset(self):
+        preset_name = self.cmb_svm_preset.currentText()
+        if not preset_name:
+            return
+
+        svm_dir = find_svm_dir(SPT_ROOT)
+        if not svm_dir:
+            return
+
+        preset_file = svm_dir / "Presets" / f"{preset_name}.json"
+        if not preset_file.exists():
+            return
+
+        try:
+            data = json.loads(preset_file.read_text(encoding="utf-8-sig"))
+            self.current_svm_data = data
+
+            def safe_int(v, d=0):
+                if isinstance(v, (int, float, str)):
+                    try: return int(v)
+                    except Exception: pass
+                return d
+
+            def safe_float(v, d=1.0):
+                if isinstance(v, (int, float, str)):
+                    try: return float(v)
+                    except Exception: pass
+                return d
+
+            # Populate Items
+            items = data.get("Items", {})
+            self.chk_svm_all_examined.setChecked(bool(items.get("AllExaminedItems", False)))
+            self.chk_svm_examine_keys.setChecked(bool(items.get("ExamineKeys", False)))
+            self.chk_svm_no_sec_filters.setChecked(bool(items.get("RemoveSecureContainerFilters", False)))
+            self.chk_svm_no_raid_restr.setChecked(bool(items.get("RemoveRaidRestr", False)))
+            self.chk_svm_no_backpack_restr.setChecked(bool(items.get("RemoveBackpacksRestrictions", False)))
+            self.spin_svm_rub.setValue(safe_int(items.get("RubStack"), 1000000))
+            self.spin_svm_usd.setValue(safe_int(items.get("DollarStack"), 50000))
+            self.spin_svm_eur.setValue(safe_int(items.get("EuroStack"), 50000))
+            self.spin_svm_gp.setValue(safe_int(items.get("GPStack"), 100))
+            self.spin_svm_backpack_depth.setValue(safe_int(items.get("BackpackStacking"), 7))
+            self.spin_svm_item_price_mult.setValue(safe_float(items.get("ItemPriceMult"), 1.0))
+
+            keys_data = items.get("Keys", {}) if isinstance(items.get("Keys"), dict) else {}
+            self.spin_svm_key_use_mult.setValue(safe_int(keys_data.get("KeyUseMult"), 1))
+            self.chk_svm_infinite_keys.setChecked(bool(keys_data.get("InfiniteKeys", False)))
+
+            # Populate Hideout
+            hideout = data.get("Hideout", {})
+            self.chk_svm_enable_stash.setChecked(bool(hideout.get("EnableStash", False)))
+            stash_data = hideout.get("Stash", {}) if isinstance(hideout.get("Stash"), dict) else {}
+            self.spin_svm_stash1.setValue(safe_int(stash_data.get("StashLvl1"), 30))
+            self.spin_svm_stash2.setValue(safe_int(stash_data.get("StashLvl2"), 40))
+            self.spin_svm_stash3.setValue(safe_int(stash_data.get("StashLvl3"), 50))
+            self.spin_svm_stash4.setValue(safe_int(stash_data.get("StashLvl4"), 68))
+            self.spin_svm_const_mult.setValue(safe_float(hideout.get("HideoutConstMult"), 1.0))
+            self.spin_svm_prod_mult.setValue(safe_float(hideout.get("HideoutProdMult"), 1.0))
+            self.spin_svm_btc_time.setValue(safe_int(hideout.get("BitcoinTime"), 2416))
+            self.spin_svm_max_btc.setValue(safe_int(hideout.get("MaxBitcoins"), 3))
+            self.chk_svm_no_const_req.setChecked(bool(hideout.get("RemoveConstructionsRequirements", False)))
+
+            # Populate Raids
+            raids = data.get("Raids", {})
+            self.spin_svm_raid_time.setValue(safe_float(raids.get("RaidTime"), 1.0))
+            exfils = raids.get("Exfils", {}) if isinstance(raids.get("Exfils"), dict) else {}
+            self.chk_svm_all_extracts.setChecked(bool(exfils.get("AllExtractsOpen", False)))
+            self.chk_svm_no_extract_req.setChecked(bool(exfils.get("NoExtractRestrictions", False)))
+            self.chk_svm_save_quest_items.setChecked(bool(raids.get("SaveQuestItems", False)))
+
+            services = data.get("Services", {})
+            self.chk_svm_enable_insurance.setChecked(bool(services.get("EnableInsurance", False)))
+            self.spin_svm_ins_min.setValue(safe_int(services.get("InsuranceMinTime"), 12))
+            self.spin_svm_ins_max.setValue(safe_int(services.get("InsuranceMaxTime"), 24))
+            self.spin_svm_ins_chance.setValue(safe_int(services.get("InsuranceReturnChance"), 100))
+
+            # Populate Traders
+            traders = data.get("Traders", {})
+            restock_val = traders.get("RestockTime", 60)
+            self.spin_svm_restock_time.setValue(safe_int(restock_val, 60))
+            tm_val = traders.get("TraderMarkup")
+            if isinstance(tm_val, dict):
+                tm_val = tm_val.get("TraderMarkup", 1.0)
+            self.spin_svm_trader_markup.setValue(safe_float(tm_val, 1.0))
+
+            fleamarket = data.get("Fleamarket", {})
+            self.spin_svm_flea_min_level.setValue(safe_int(fleamarket.get("FleaMarketLevel"), 15))
+            self.chk_svm_flea_no_fir.setChecked(bool(fleamarket.get("FleaNoFIRSell", False)))
+
+            # Populate Player
+            player = data.get("Player", {})
+            health = player.get("PMCStats", {}).get("Health", {}) if isinstance(player.get("PMCStats"), dict) else {}
+            self.spin_svm_hp_head.setValue(safe_int(health.get("Head"), 35))
+            self.spin_svm_hp_chest.setValue(safe_int(health.get("Chest"), 85))
+            self.spin_svm_hp_stomach.setValue(safe_int(health.get("Stomach"), 70))
+            self.spin_svm_hp_arms.setValue(safe_int(health.get("Arms"), 60))
+            # Populate Player & XP Multipliers
+            self.spin_svm_raid_xp.setValue(safe_float(player.get("CharXP", player.get("Exp")), 1.0))
+            self.spin_svm_loot_xp.setValue(safe_float(player.get("LootExp"), 1.0))
+            self.spin_svm_examine_xp.setValue(safe_float(player.get("ExamineExp"), 1.0))
+            self.spin_svm_skill_xp.setValue(safe_float(player.get("SkillXpMult"), 1.0))
+            self.spin_svm_energy_loss.setValue(safe_float(player.get("EnergyLoss"), 1.0))
+            self.spin_svm_hydration_loss.setValue(safe_float(player.get("HydrationLoss"), 1.0))
+            self.chk_svm_unlimited_stamina.setChecked(bool(player.get("UnlimitedStamina", False)))
+            self.spin_svm_sprint_drain.setValue(safe_float(player.get("SprintDrainRate"), 1.0))
+            self.spin_svm_aim_drain.setValue(safe_float(player.get("AimDrainRate"), 1.0))
+
+        except Exception as e:
+            print(f"Error loading preset '{preset_name}': {e}")
+
+    def gather_svm_ui_data(self):
+        data = self.current_svm_data if self.current_svm_data else {}
+
+        if "Items" not in data or not isinstance(data["Items"], dict): data["Items"] = {}
+        data["Items"]["EnableItems"] = True
+        data["Items"]["EnableCurrency"] = True
+        data["Items"]["AllExaminedItems"] = self.chk_svm_all_examined.isChecked()
+        data["Items"]["ExamineKeys"] = self.chk_svm_examine_keys.isChecked()
+        data["Items"]["RemoveSecureContainerFilters"] = self.chk_svm_no_sec_filters.isChecked()
+        data["Items"]["RemoveRaidRestr"] = self.chk_svm_no_raid_restr.isChecked()
+        data["Items"]["RemoveBackpacksRestrictions"] = self.chk_svm_no_backpack_restr.isChecked()
+        data["Items"]["RubStack"] = self.spin_svm_rub.value()
+        data["Items"]["DollarStack"] = self.spin_svm_usd.value()
+        data["Items"]["EuroStack"] = self.spin_svm_eur.value()
+        data["Items"]["GPStack"] = self.spin_svm_gp.value()
+        data["Items"]["BackpackStacking"] = self.spin_svm_backpack_depth.value()
+        data["Items"]["ItemPriceMult"] = self.spin_svm_item_price_mult.value()
+
+        if "Keys" not in data["Items"] or not isinstance(data["Items"]["Keys"], dict): data["Items"]["Keys"] = {}
+        data["Items"]["Keys"]["KeyUseMult"] = self.spin_svm_key_use_mult.value()
+        data["Items"]["Keys"]["InfiniteKeys"] = self.chk_svm_infinite_keys.isChecked()
+
+        if "Hideout" not in data or not isinstance(data["Hideout"], dict): data["Hideout"] = {}
+        data["Hideout"]["EnableHideout"] = True
+        data["Hideout"]["EnableStash"] = self.chk_svm_enable_stash.isChecked()
+        if "Stash" not in data["Hideout"] or not isinstance(data["Hideout"]["Stash"], dict): data["Hideout"]["Stash"] = {}
+        data["Hideout"]["Stash"]["StashLvl1"] = self.spin_svm_stash1.value()
+        data["Hideout"]["Stash"]["StashLvl2"] = self.spin_svm_stash2.value()
+        data["Hideout"]["Stash"]["StashLvl3"] = self.spin_svm_stash3.value()
+        data["Hideout"]["Stash"]["StashLvl4"] = self.spin_svm_stash4.value()
+        data["Hideout"]["HideoutConstMult"] = self.spin_svm_const_mult.value()
+        data["Hideout"]["HideoutProdMult"] = self.spin_svm_prod_mult.value()
+        data["Hideout"]["BitcoinTime"] = self.spin_svm_btc_time.value()
+        data["Hideout"]["MaxBitcoins"] = self.spin_svm_max_btc.value()
+        data["Hideout"]["RemoveConstructionsRequirements"] = self.chk_svm_no_const_req.isChecked()
+
+        if "Raids" not in data or not isinstance(data["Raids"], dict): data["Raids"] = {}
+        data["Raids"]["EnableRaids"] = True
+        data["Raids"]["RaidTime"] = int(self.spin_svm_raid_time.value())
+        if "Exfils" not in data["Raids"] or not isinstance(data["Raids"]["Exfils"], dict): data["Raids"]["Exfils"] = {}
+        data["Raids"]["Exfils"]["AllExtractsOpen"] = self.chk_svm_all_extracts.isChecked()
+        data["Raids"]["Exfils"]["NoExtractRestrictions"] = self.chk_svm_no_extract_req.isChecked()
+        data["Raids"]["SaveQuestItems"] = self.chk_svm_save_quest_items.isChecked()
+
+        if "Services" not in data or not isinstance(data["Services"], dict): data["Services"] = {}
+        data["Services"]["EnableServices"] = True
+        data["Services"]["EnableInsurance"] = self.chk_svm_enable_insurance.isChecked()
+        data["Services"]["InsuranceMinTime"] = self.spin_svm_ins_min.value()
+        data["Services"]["InsuranceMaxTime"] = self.spin_svm_ins_max.value()
+        data["Services"]["InsuranceReturnChance"] = self.spin_svm_ins_chance.value()
+
+        if "Traders" not in data or not isinstance(data["Traders"], dict): data["Traders"] = {}
+        data["Traders"]["EnableTraders"] = True
+        data["Traders"]["RestockTime"] = int(self.spin_svm_restock_time.value())
+        data["Traders"]["TraderMarkup"] = {
+            "TraderMarkup": float(self.spin_svm_trader_markup.value())
+        }
+
+        if "Fleamarket" not in data or not isinstance(data["Fleamarket"], dict): data["Fleamarket"] = {}
+        data["Fleamarket"]["EnableFleamarket"] = True
+        data["Fleamarket"]["FleaMarketLevel"] = self.spin_svm_flea_min_level.value()
+        data["Fleamarket"]["FleaMinLevel"] = self.spin_svm_flea_min_level.value()
+        data["Fleamarket"]["FleaNoFIRSell"] = self.chk_svm_flea_no_fir.isChecked()
+
+        if "Player" not in data or not isinstance(data["Player"], dict): data["Player"] = {}
+        data["Player"]["EnablePlayer"] = True
+        data["Player"]["EnableStats"] = True
+        data["Player"]["EnableHealth"] = True
+        data["Player"]["EnablePMC"] = True
+        if "PMCStats" not in data["Player"] or not isinstance(data["Player"]["PMCStats"], dict): data["Player"]["PMCStats"] = {}
+        if "Health" not in data["Player"]["PMCStats"] or not isinstance(data["Player"]["PMCStats"]["Health"], dict): data["Player"]["PMCStats"]["Health"] = {}
+        data["Player"]["PMCStats"]["Health"]["Head"] = self.spin_svm_hp_head.value()
+        data["Player"]["PMCStats"]["Health"]["Chest"] = self.spin_svm_hp_chest.value()
+        data["Player"]["PMCStats"]["Health"]["Stomach"] = self.spin_svm_hp_stomach.value()
+        data["Player"]["PMCStats"]["Health"]["Arms"] = self.spin_svm_hp_arms.value()
+        data["Player"]["PMCStats"]["Health"]["Legs"] = self.spin_svm_hp_legs.value()
+        data["Player"]["SkillXpMult"] = float(self.spin_svm_skill_xp.value())
+        data["Player"]["CharXP"] = float(self.spin_svm_raid_xp.value())
+        data["Player"]["LootExp"] = float(self.spin_svm_loot_xp.value())
+        data["Player"]["ExamineExp"] = float(self.spin_svm_examine_xp.value())
+        data["Player"]["EnergyLoss"] = max(0.01, self.spin_svm_energy_loss.value())
+        data["Player"]["HydrationLoss"] = max(0.01, self.spin_svm_hydration_loss.value())
+        data["Player"]["UnlimitedStamina"] = self.chk_svm_unlimited_stamina.isChecked()
+        data["Player"]["SprintDrainRate"] = max(0.01, self.spin_svm_sprint_drain.value())
+        data["Player"]["AimDrainRate"] = max(0.01, self.spin_svm_aim_drain.value())
+
+        return data
+
+    def create_new_svm_preset(self):
+        name, ok = QInputDialog.getText(self, "New Server Rules Preset", "Enter a name for the new preset:")
+        if not ok or not name.strip():
+            return
+
+        name = re.sub(r'[^a-zA-Z0-9_\-]', '', name.strip())
+        if not name:
+            return
+
+        svm_dir = find_svm_dir(SPT_ROOT)
+        if not svm_dir:
+            QMessageBox.warning(self, "Rules Mod Not Found", "Server rules mod folder was not found.")
+            return
+
+        presets_dir = svm_dir / "Presets"
+        presets_dir.mkdir(parents=True, exist_ok=True)
+        target = presets_dir / f"{name}.json"
+
+        if target.exists():
+            QMessageBox.warning(self, "Preset Exists", f"A preset named '{name}' already exists.")
+            return
+
+        noname = presets_dir / "Noname.json"
+        if noname.exists():
+            shutil.copy2(noname, target)
+        else:
+            target.write_text(json.dumps(self.gather_svm_ui_data(), indent=2), encoding="utf-8")
+
+        self.refresh_svm_presets_list()
+        idx = self.cmb_svm_preset.findText(name)
+        if idx >= 0:
+            self.cmb_svm_preset.setCurrentIndex(idx)
+
+    def delete_current_svm_preset(self):
+        preset_name = self.cmb_svm_preset.currentText()
+        if not preset_name:
+            return
+
+        if preset_name.lower() == "noname":
+            QMessageBox.warning(self, "Cannot Delete Default", "The default 'Noname' preset cannot be deleted.")
+            return
+
+        svm_dir = find_svm_dir(SPT_ROOT)
+        if not svm_dir:
+            QMessageBox.warning(self, "Rules Mod Not Found", "Server rules mod folder was not found.")
+            return
+
+        preset_file = svm_dir / "Presets" / f"{preset_name}.json"
+        if not preset_file.exists():
+            QMessageBox.warning(self, "Preset Missing", f"Preset file '{preset_name}.json' was not found.")
+            return
+
+        reply = QMessageBox.question(
+            self, "Confirm Delete Preset",
+            f"Are you sure you want to permanently delete preset '<b>{preset_name}</b>'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                preset_file.unlink()
+
+                # If deleted preset was set active in loader.json, fallback to Noname
+                loader_file = svm_dir / "Loader" / "loader.json"
+                if loader_file.exists():
+                    try:
+                        l_data = json.loads(loader_file.read_text(encoding="utf-8-sig"))
+                        if l_data.get("CurrentlySelectedPreset") == preset_name:
+                            loader_file.write_text(json.dumps({"CurrentlySelectedPreset": "Noname"}, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass
+
+                self.refresh_svm_presets_list()
+                QMessageBox.information(self, "Preset Deleted", f"🗑 Server rules preset '<b>{preset_name}</b>' has been deleted successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error Deleting Preset", f"Failed to delete preset file: {e}")
+
+    def save_current_svm_preset(self):
+        preset_name = self.cmb_svm_preset.currentText()
+        if not preset_name:
+            return
+
+        svm_dir = find_svm_dir(SPT_ROOT)
+        if not svm_dir:
+            QMessageBox.warning(self, "Rules Mod Not Found", "Server rules mod folder was not found.")
+            return
+
+        preset_file = svm_dir / "Presets" / f"{preset_name}.json"
+        data = self.gather_svm_ui_data()
+
+        try:
+            preset_file.parent.mkdir(parents=True, exist_ok=True)
+            preset_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            QMessageBox.information(self, "Preset Saved", f"Server rules preset '{preset_name}' saved successfully!")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Saving Preset", f"Failed to save preset: {e}")
+
+    def apply_svm_preset_active(self):
+        preset_name = self.cmb_svm_preset.currentText()
+        if not preset_name:
+            return
+
+        svm_dir = find_svm_dir(SPT_ROOT)
+        if not svm_dir:
+            QMessageBox.warning(self, "Rules Mod Not Found", "Server rules mod folder was not found.")
+            return
+
+        self.save_current_svm_preset()
+
+        loader_file = svm_dir / "Loader" / "loader.json"
+        try:
+            loader_file.parent.mkdir(parents=True, exist_ok=True)
+            loader_data = {"CurrentlySelectedPreset": preset_name}
+            loader_file.write_text(json.dumps(loader_data, indent=2), encoding="utf-8")
+
+            self.lbl_svm_active_badge.setText(f"Active: {preset_name}")
+            self.lbl_svm_active_badge.setStyleSheet("padding: 4px 10px; border-radius: 10px; background-color: #a6e3a1; color: #11111b; font-weight: bold;")
+            QMessageBox.information(self, "⚡ Server Preset Active",
+                                    f"Server rules preset '<b>{preset_name}</b>' has been set as active!<br><br>"
+                                    f"<b>Important:</b> If your SPT Server is currently running, click <b>⏹ Stop Server</b> then <b>▶ Start Server</b> to apply your new settings.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Setting Active Preset", f"Failed to set active preset: {e}")
+
+    def reset_svm_preset_to_defaults(self):
+        preset_name = self.cmb_svm_preset.currentText()
+        reply = QMessageBox.question(
+            self, "Reset to Defaults?",
+            f"Are you sure you want to reset all server rules in preset '<b>{preset_name}</b>' back to default values?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            # Currency & Stacks Defaults
+            self.chk_svm_all_examined.setChecked(False)
+            self.chk_svm_examine_keys.setChecked(False)
+            self.chk_svm_no_sec_filters.setChecked(False)
+            self.chk_svm_no_raid_restr.setChecked(False)
+            self.chk_svm_no_backpack_restr.setChecked(False)
+            self.chk_svm_infinite_keys.setChecked(False)
+            self.spin_svm_rub.setValue(1000000)
+            self.spin_svm_usd.setValue(50000)
+            self.spin_svm_eur.setValue(50000)
+            self.spin_svm_gp.setValue(100)
+            self.spin_svm_backpack_depth.setValue(7)
+            self.spin_svm_item_price_mult.setValue(1.0)
+            self.spin_svm_key_use_mult.setValue(1)
+
+            # Hideout Defaults
+            self.chk_svm_enable_stash.setChecked(False)
+            self.spin_svm_stash1.setValue(30)
+            self.spin_svm_stash2.setValue(40)
+            self.spin_svm_stash3.setValue(50)
+            self.spin_svm_stash4.setValue(68)
+            self.spin_svm_const_mult.setValue(1.0)
+            self.spin_svm_prod_mult.setValue(1.0)
+            self.spin_svm_btc_time.setValue(2416)
+            self.spin_svm_max_btc.setValue(3)
+            self.chk_svm_no_const_req.setChecked(False)
+
+            # Raids Defaults
+            self.spin_svm_raid_time.setValue(1.0)
+            self.chk_svm_all_extracts.setChecked(False)
+            self.chk_svm_no_extract_req.setChecked(False)
+            self.chk_svm_save_quest_items.setChecked(False)
+            self.chk_svm_enable_insurance.setChecked(False)
+            self.spin_svm_ins_min.setValue(12)
+            self.spin_svm_ins_max.setValue(24)
+            self.spin_svm_ins_chance.setValue(100)
+
+            # Traders & Flea Defaults
+            self.spin_svm_restock_time.setValue(60)
+            self.spin_svm_trader_markup.setValue(1.0)
+            self.spin_svm_flea_min_level.setValue(15)
+            self.chk_svm_flea_no_fir.setChecked(False)
+
+            # Player Defaults
+            self.spin_svm_hp_head.setValue(35)
+            self.spin_svm_hp_chest.setValue(85)
+            self.spin_svm_hp_stomach.setValue(70)
+            self.spin_svm_hp_arms.setValue(60)
+            self.spin_svm_hp_legs.setValue(65)
+            self.spin_svm_skill_xp.setValue(1.0)
+
+            QMessageBox.information(self, "↺ Reset Complete", f"Preset '<b>{preset_name}</b>' has been reset to default values!\n\nClick '⚡ Save & Set Active' to save and apply to your server.")
+
+
+    # ------------------ Linux Performance Tab ------------------
+
+
     # ------------------ Server Controls ------------------
     def check_server_status(self):
         res = subprocess.run(["pgrep", "-f", "SPT.Server"], capture_output=True)
@@ -3773,6 +4822,282 @@ class SPTModManagerWindow(QMainWindow):
             else:
                 self.show_missing_script_dialog("server.sh", server_script)
             self.check_server_status()
+
+    # ------------------ Native Linux Profile Editor Implementation ------------------
+    def setup_profile_editor_tab(self):
+        layout = QVBoxLayout(self.tab_profile)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        # Header Card: Profile Selection & Save/Refresh
+        header_card = QFrame()
+        header_card.setStyleSheet("QFrame { background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; }")
+        header_lay = QHBoxLayout(header_card)
+        header_lay.setContentsMargins(10, 8, 10, 8)
+
+        lbl_p_title = QLabel("<b>Select PMC Profile:</b>")
+        lbl_p_title.setStyleSheet("color: #cdd6f4; font-size: 13px;")
+        header_lay.addWidget(lbl_p_title)
+
+        self.cmb_profile_select = QComboBox()
+        self.cmb_profile_select.setMinimumWidth(280)
+        self.cmb_profile_select.setStyleSheet("QComboBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        self.cmb_profile_select.currentIndexChanged.connect(self.on_user_profile_changed)
+        header_lay.addWidget(self.cmb_profile_select)
+
+        btn_refresh_profiles = QPushButton("🔄 Refresh")
+        btn_refresh_profiles.setStyleSheet("QPushButton { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; font-weight: bold; padding: 5px 12px; border-radius: 6px; } QPushButton:hover { background-color: #45475a; }")
+        btn_refresh_profiles.clicked.connect(self.refresh_profile_editor_list)
+        header_lay.addWidget(btn_refresh_profiles)
+
+        btn_save_profile = QPushButton("💾 Save Profile")
+        btn_save_profile.setStyleSheet("QPushButton { background-color: #a6e3a1; color: #11111b; font-weight: bold; padding: 5px 16px; border-radius: 6px; } QPushButton:hover { background-color: #94e2d5; }")
+        btn_save_profile.clicked.connect(self.save_selected_user_profile)
+        header_lay.addWidget(btn_save_profile)
+
+        header_lay.addStretch()
+
+        self.lbl_profile_info_badge = QLabel("Edition: Unknown")
+        self.lbl_profile_info_badge.setStyleSheet("padding: 4px 10px; border-radius: 10px; background-color: #313244; color: #89b4fa; font-weight: bold; font-size: 12px;")
+        header_lay.addWidget(self.lbl_profile_info_badge)
+
+        layout.addWidget(header_card)
+
+        # Scroll Area for Profile Fields
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        scroll_content = QWidget()
+        scroll_lay = QVBoxLayout(scroll_content)
+        scroll_lay.setContentsMargins(0, 0, 0, 0)
+        scroll_lay.setSpacing(10)
+
+        # Card 1: PMC Info & Experience
+        grp_info = QGroupBox("👤 PMC Identity && Progression")
+        grp_info.setStyleSheet("QGroupBox { font-weight: bold; color: #89b4fa; border: 1px solid #313244; border-radius: 8px; margin-top: 6px; padding-top: 10px; background-color: #1e1e2e; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }")
+        f_info = QFormLayout(grp_info)
+        f_info.setContentsMargins(12, 12, 12, 12)
+        f_info.setSpacing(8)
+
+        self.txt_profile_nickname = QLineEdit()
+        self.txt_profile_nickname.setStyleSheet("QLineEdit { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        f_info.addRow("PMC Nickname:", self.txt_profile_nickname)
+
+        self.spin_profile_level = QSpinBox()
+        self.spin_profile_level.setRange(1, 99)
+        self.spin_profile_level.setStyleSheet("QSpinBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        f_info.addRow("PMC Level:", self.spin_profile_level)
+
+        self.spin_profile_exp = QSpinBox()
+        self.spin_profile_exp.setRange(0, 999999999)
+        self.spin_profile_exp.setStyleSheet("QSpinBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        f_info.addRow("Total Experience (XP):", self.spin_profile_exp)
+
+        scroll_lay.addWidget(grp_info)
+
+        # Card 2: PMC Body Part Health
+        grp_health = QGroupBox("🏥 PMC Body Part Health")
+        grp_health.setStyleSheet("QGroupBox { font-weight: bold; color: #a6e3a1; border: 1px solid #313244; border-radius: 8px; margin-top: 6px; padding-top: 10px; background-color: #1e1e2e; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }")
+        v_health = QVBoxLayout(grp_health)
+        v_health.setContentsMargins(12, 12, 12, 12)
+        v_health.setSpacing(8)
+
+        btn_row_health = QHBoxLayout()
+        btn_max_health = QPushButton("🏥 Heal && Max Current Health")
+        btn_max_health.setStyleSheet("QPushButton { background-color: #313244; color: #a6e3a1; border: 1px solid #36503c; font-weight: bold; padding: 4px 10px; border-radius: 6px; } QPushButton:hover { background-color: #314a38; }")
+        btn_max_health.clicked.connect(self.max_current_health_profile)
+        btn_row_health.addWidget(btn_max_health)
+        btn_row_health.addStretch()
+        v_health.addLayout(btn_row_health)
+
+        f_health = QFormLayout()
+        f_health.setSpacing(8)
+
+        self.profile_hp_spinboxes = {}
+        parts = [
+            ("Head", "Head", 35),
+            ("Chest", "Thorax / Chest", 85),
+            ("Stomach", "Stomach", 70),
+            ("LeftArm", "Left Arm", 60),
+            ("RightArm", "Right Arm", 60),
+            ("LeftLeg", "Left Leg", 65),
+            ("RightLeg", "Right Leg", 65)
+        ]
+
+        for p_key, p_label, default_max in parts:
+            row_lay = QHBoxLayout()
+            sp_cur = QSpinBox()
+            sp_cur.setRange(0, 9999)
+            sp_cur.setStyleSheet("QSpinBox { background-color: #313244; color: #a6e3a1; border: 1px solid #45475a; padding: 3px 6px; border-radius: 4px; font-weight: bold; }")
+
+            lbl_max = QLabel(f"/ {default_max}")
+            lbl_max.setStyleSheet("color: #89b4fa; font-weight: bold;")
+
+            row_lay.addWidget(QLabel("Current HP:"))
+            row_lay.addWidget(sp_cur)
+            row_lay.addWidget(lbl_max)
+            row_lay.addStretch()
+
+            f_health.addRow(f"<b>{p_label}:</b>", row_lay)
+            self.profile_hp_spinboxes[p_key] = (sp_cur, default_max, lbl_max)
+
+        v_health.addLayout(f_health)
+        scroll_lay.addWidget(grp_health)
+
+        # Card 3: Hydration & Energy
+        grp_vital = QGroupBox("💧 Hydration && Energy")
+        grp_vital.setStyleSheet("QGroupBox { font-weight: bold; color: #89b4fa; border: 1px solid #313244; border-radius: 8px; margin-top: 6px; padding-top: 10px; background-color: #1e1e2e; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }")
+        f_vital = QFormLayout(grp_vital)
+        f_vital.setContentsMargins(12, 12, 12, 12)
+        f_vital.setSpacing(8)
+
+        self.spin_profile_hydration = QSpinBox()
+        self.spin_profile_hydration.setRange(0, 1000)
+        self.spin_profile_hydration.setStyleSheet("QSpinBox { background-color: #313244; color: #89b4fa; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        f_vital.addRow("Hydration (Current):", self.spin_profile_hydration)
+
+        self.spin_profile_energy = QSpinBox()
+        self.spin_profile_energy.setRange(0, 1000)
+        self.spin_profile_energy.setStyleSheet("QSpinBox { background-color: #313244; color: #f9e2af; border: 1px solid #45475a; padding: 4px 8px; border-radius: 6px; font-weight: bold; }")
+        f_vital.addRow("Energy (Current):", self.spin_profile_energy)
+
+        scroll_lay.addWidget(grp_vital)
+        scroll_lay.addStretch()
+
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+
+        self.current_profile_file = None
+        self.refresh_profile_editor_list()
+
+    def get_profile_dirs(self):
+        dirs = []
+        d1 = SPT_ROOT / "user" / "profiles"
+        d2 = SPT_ROOT / "SPT_Runtime" / "user" / "profiles"
+        if d1.exists(): dirs.append(d1)
+        if d2.exists(): dirs.append(d2)
+        return dirs
+
+    def refresh_profile_editor_list(self):
+        self.cmb_profile_select.blockSignals(True)
+        self.cmb_profile_select.clear()
+
+        profiles_found = {}
+        for p_dir in self.get_profile_dirs():
+            for pf in p_dir.glob("*.json"):
+                try:
+                    data = json.loads(pf.read_text(encoding="utf-8-sig"))
+                    info = data.get("info", {})
+                    p_id = info.get("id", pf.stem)
+                    username = info.get("username") or data.get("characters", {}).get("pmc", {}).get("Info", {}).get("Nickname") or p_id
+                    edition = info.get("edition", "Unknown")
+                    profiles_found[p_id] = {
+                        "path": pf,
+                        "label": f"{username} ({p_id[:8]}...)",
+                        "edition": edition,
+                        "data": data
+                    }
+                except Exception:
+                    pass
+
+        self.profile_cache = profiles_found
+        for p_id, p_info in profiles_found.items():
+            self.cmb_profile_select.addItem(p_info["label"], userData=p_id)
+
+        self.cmb_profile_select.blockSignals(False)
+
+        if self.cmb_profile_select.count() > 0:
+            self.cmb_profile_select.setCurrentIndex(0)
+            self.load_selected_user_profile()
+        else:
+            self.lbl_profile_info_badge.setText("No Profiles Found")
+
+    def on_user_profile_changed(self):
+        self.load_selected_user_profile()
+
+    def load_selected_user_profile(self):
+        p_id = self.cmb_profile_select.currentData()
+        if not p_id or not hasattr(self, 'profile_cache') or p_id not in self.profile_cache:
+            return
+
+        p_info = self.profile_cache[p_id]
+        pf = p_info["path"]
+        self.current_profile_file = pf
+
+        try:
+            data = json.loads(pf.read_text(encoding="utf-8-sig"))
+            info = data.get("info", {})
+            pmc = data.get("characters", {}).get("pmc", {})
+            pmc_info = pmc.get("Info", {})
+            health = pmc.get("Health", {})
+
+            self.lbl_profile_info_badge.setText(f"Edition: {info.get('edition', 'Standard')} | ID: {p_id}")
+
+            self.txt_profile_nickname.setText(pmc_info.get("Nickname", info.get("username", "")))
+            self.spin_profile_level.setValue(int(pmc_info.get("Level", 1)))
+            self.spin_profile_exp.setValue(int(pmc_info.get("Experience", 0)))
+
+            self.spin_profile_hydration.setValue(int(health.get("Hydration", {}).get("Current", 100)))
+            self.spin_profile_energy.setValue(int(health.get("Energy", {}).get("Current", 100)))
+
+            bp_data = health.get("BodyParts", {})
+            for p_key, (sp_cur, default_max, lbl_max) in self.profile_hp_spinboxes.items():
+                p_hp = bp_data.get(p_key, {}).get("Health", {}) if isinstance(bp_data.get(p_key), dict) else {}
+                max_val = int(p_hp.get("Maximum", default_max))
+                lbl_max.setText(f"/ {max_val}")
+                sp_cur.setValue(int(p_hp.get("Current", max_val)))
+
+        except Exception as e:
+            print(f"Error loading profile '{pf}': {e}")
+
+    def max_current_health_profile(self):
+        for p_key, (sp_cur, default_max, lbl_max) in self.profile_hp_spinboxes.items():
+            try:
+                max_val = int(lbl_max.text().replace('/', '').strip())
+            except Exception:
+                max_val = default_max
+            sp_cur.setValue(max_val)
+
+    def save_selected_user_profile(self):
+        if not self.current_profile_file or not self.current_profile_file.exists():
+            QMessageBox.warning(self, "No Profile Selected", "Please select a valid PMC profile first.")
+            return
+
+        try:
+            data = json.loads(self.current_profile_file.read_text(encoding="utf-8-sig"))
+            if "characters" not in data or "pmc" not in data["characters"]:
+                QMessageBox.warning(self, "Invalid Profile", "Selected profile does not contain a valid PMC character.")
+                return
+
+            pmc = data["characters"]["pmc"]
+            if "Info" not in pmc or not isinstance(pmc["Info"], dict): pmc["Info"] = {}
+            pmc["Info"]["Nickname"] = self.txt_profile_nickname.text().strip() or "PMC"
+            pmc["Info"]["Level"] = self.spin_profile_level.value()
+            pmc["Info"]["Experience"] = self.spin_profile_exp.value()
+
+            if "Health" not in pmc or not isinstance(pmc["Health"], dict): pmc["Health"] = {}
+            if "Hydration" not in pmc["Health"] or not isinstance(pmc["Health"]["Hydration"], dict): pmc["Health"]["Hydration"] = {}
+            pmc["Health"]["Hydration"]["Current"] = self.spin_profile_hydration.value()
+
+            if "Energy" not in pmc["Health"] or not isinstance(pmc["Health"]["Energy"], dict): pmc["Health"]["Energy"] = {}
+            pmc["Health"]["Energy"]["Current"] = self.spin_profile_energy.value()
+
+            if "BodyParts" not in pmc["Health"] or not isinstance(pmc["Health"]["BodyParts"], dict): pmc["Health"]["BodyParts"] = {}
+            bp_data = pmc["Health"]["BodyParts"]
+
+            for p_key, (sp_cur, default_max, lbl_max) in self.profile_hp_spinboxes.items():
+                if p_key not in bp_data or not isinstance(bp_data[p_key], dict): bp_data[p_key] = {}
+                existing_max = bp_data[p_key].get("Health", {}).get("Maximum", default_max) if isinstance(bp_data.get(p_key), dict) else default_max
+                bp_data[p_key]["Health"] = {
+                    "Current": sp_cur.value(),
+                    "Maximum": existing_max
+                }
+
+            self.current_profile_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            QMessageBox.information(self, "Profile Saved", f"💾 Profile <b>{pmc['Info']['Nickname']}</b> updated successfully!")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error Saving Profile", f"Failed to save profile: {e}")
 
     def launch_spt(self):
         cfg = load_config()
