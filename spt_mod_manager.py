@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QFormLayout, QDoubleSpinBox, QSpinBox, QInputDialog, QTextEdit
 )
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSize
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QPainter, QBrush, QPen, QImage, QTextDocument
 import json
 
 CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
