@@ -40,15 +40,38 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 
 ---
 
+### 5. Server Rules & Values Manager (SVM Integration)
+Customize server rules and global game values without manually editing JSON files. Toggle unlimited stamina, adjust hunger and thirst depletion rates, change raid duration, modify trader restocks and markup, set custom item stack limits, and scale end-of-raid experience multipliers (`CharXP`).
+
+![Server Rules & Values](docs/screenshots/server_rules_svm.png)
+
+---
+
+### 6. PMC Profile Editor
+Inspect and update PMC progression and character state. Edit nickname, character level, total experience (XP), hydration, energy, and current body part health (Head, Chest, Stomach, Arms, Legs) with 1-click full healing.
+
+![PMC Profile Editor](docs/screenshots/profile_editor.png)
+
+---
+
+### 7. Linux Performance & Game Launch Tuning
+Enable recommended Linux performance driver flags for your hardware. Toggle **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI/threaded optimizations**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
+
+![Linux Performance & Launch Tuning](docs/screenshots/linux_performance.png)
+
+---
+
 ## ✨ Features
 
 - **⚡ Zero-Copy Symlink Staging**: Stage and un-stage client (`BepInEx/plugins`) and server (`user/mods`) mods instantly without duplicating storage or modifying game files directly.
 - **🌐 Live Mod Catalog Browser**: Search, filter, and download mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic `.meta.json` sidecar stamping.
 - **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained HTML manifests. Live state auto-sync updates preset badges whenever mods are toggled or deleted.
+- **🎛️ Server Rules & Values (SVM)**: Full GUI for Server Value Modifier settings including item stack limits, metabolism rates (hunger/thirst), stamina drain, raid duration, trader restocks, and raid experience multipliers.
+- **👤 PMC Profile Editor**: Direct profile manager to edit level, total XP, character nickname, current body part health, hydration, energy, and 1-click full heal.
 - **📦 Multi-File Mod Consolidation**: Bundles client + server files (e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
 - **🟢 Fika Co-Op Compatibility Integration**: Automatically queries and displays Fika multiplayer compatibility badges for all installed mods.
 - **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
-- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
+- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
 - **🎮 Server & Launcher Execution**: Direct process control for `server.sh` and `launcher.sh` with live `pgrep` status monitoring.
 
 ---
