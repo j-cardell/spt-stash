@@ -1,12 +1,25 @@
 # 🎒 SPT Stash
 
-> **Native Linux Mod Manager for Single-Player Tarkov (SPT)**
+> **Native Linux Mod Manager & Management Suite for Single-Player Tarkov (SPT)**
 
 [![CI & Security Audit](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml)
 [![Build & Release AppImage](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml)
-[![License: MIT](https://img.shields.org/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.org/badge/license-MIT-green)](LICENSE)
 
-**SPT Stash** is a modern, fast desktop application built specifically for managing Single-Player Tarkov (SPT) client and server mods on Linux and Steam Deck (SteamOS).
+**SPT Stash** is a native Linux desktop application built specifically for Single-Player Tarkov (SPT) on Linux and Steam Deck (SteamOS). It provides **zero-copy symlink staging**, **Server Value Modifier (SVM) rules management**, **PMC profile & health editing**, **Linux hardware & game launch performance tuning**, and **1-click sp-mod.com Forge catalog browsing**.
+
+---
+
+### 📋 Overview & Core Capabilities
+
+- **🎒 Zero-Copy Symlink Staging**: Stage and un-stage client (`BepInEx/plugins`) and server (`user/mods`) mods without duplicating storage or modifying game files directly.
+- **🎛️ Server Rules & Values (SVM)**: Configure raid duration, item stack limits, trader restocks, metabolism depletion rates, stamina drain, and end-of-raid XP multipliers. *(Requires the [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) server mod).*
+- **👤 PMC Profile & Health Editor**: Manage character level, total XP, nickname, hydration, energy, and current body part health with 1-click full healing.
+- **⚡ Linux Performance & Tuning**: Configure MangoHud, AMD FSR 4 upscaling, DXVK Async shader caching, Feral GameMode, NVIDIA NVAPI optimizations, and CPU core isolation (`taskset`).
+- **🌐 sp-mod.com Forge Integration**: Search, filter, and 1-click install mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic dependency detection.
+- **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained interactive HTML manifests.
+- **🟢 Fika Co-Op Badges**: View real-time Fika multiplayer compatibility indicators for installed mods.
+- **🎮 Server & Launcher Control**: Direct process control for `server.sh` and `launcher.sh` with active status monitoring.
 
 ---
 
@@ -41,7 +54,7 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 ---
 
 ### 5. Server Rules & Values Manager (SVM Integration)
-Customize server rules and global game values without manually editing JSON files. Toggle unlimited stamina, adjust hunger and thirst depletion rates, change raid duration, modify trader restocks and markup, set custom item stack limits, and scale end-of-raid experience multipliers (`CharXP`).
+Customize server rules and global game values without manually editing JSON files. Toggle unlimited stamina, adjust hunger and thirst depletion rates, change raid duration, modify trader restocks and markup, set custom item stack limits, and scale end-of-raid experience multipliers (`CharXP`). *(Requires the [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) server mod).*
 
 ![Server Rules & Values](docs/screenshots/server_rules_svm.png)
 
@@ -66,7 +79,7 @@ Enable recommended Linux performance driver flags for your hardware. Toggle **Ma
 - **⚡ Zero-Copy Symlink Staging**: Stage and un-stage client (`BepInEx/plugins`) and server (`user/mods`) mods instantly without duplicating storage or modifying game files directly.
 - **🌐 Live Mod Catalog Browser**: Search, filter, and download mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic `.meta.json` sidecar stamping.
 - **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained HTML manifests. Live state auto-sync updates preset badges whenever mods are toggled or deleted.
-- **🎛️ Server Rules & Values (SVM)**: Full GUI for Server Value Modifier settings including item stack limits, metabolism rates (hunger/thirst), stamina drain, raid duration, trader restocks, and raid experience multipliers.
+- **🎛️ Server Rules & Values (SVM)**: Full GUI for Server Value Modifier settings including item stack limits, metabolism rates (hunger/thirst), stamina drain, raid duration, trader restocks, and raid experience multipliers. *(Requires [SVM](https://sp-mod.com/mod/236/server-value-modifier-svm)).*
 - **👤 PMC Profile Editor**: Direct profile manager to edit level, total XP, character nickname, current body part health, hydration, energy, and 1-click full heal.
 - **📦 Multi-File Mod Consolidation**: Bundles client + server files (e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
 - **🟢 Fika Co-Op Compatibility Integration**: Automatically queries and displays Fika multiplayer compatibility badges for all installed mods.
