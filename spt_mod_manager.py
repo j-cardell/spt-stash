@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QFormLayout, QDoubleSpinBox, QSpinBox, QInputDialog, QTextEdit
 )
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSize
-from PySide6.QtGui import QFont, QColor, QPainter, QBrush, QPen, QImage, QTextDocument
+from PySide6.QtGui import QFont, QColor, QPainter, QBrush, QPen, QImage, QTextDocument, QIcon, QPixmap
 import json
 
 CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
@@ -1648,8 +1648,18 @@ class SPTModManagerWindow(QMainWindow):
 
         # Header Bar
         header_layout = QHBoxLayout()
-        
-        title_label = QLabel("🎒 SPT Stash")
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(10)
+
+        icon_path = Path(__file__).parent / "docs" / "spt_stash_icon.png"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+            lbl_icon = QLabel()
+            pixmap = QPixmap(str(icon_path)).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            lbl_icon.setPixmap(pixmap)
+            header_layout.addWidget(lbl_icon)
+
+        title_label = QLabel("SPT Stash")
         title_label.setFont(QFont("Ubuntu", 17, QFont.Bold))
         header_layout.addWidget(title_label)
 
