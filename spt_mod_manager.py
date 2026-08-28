@@ -1309,7 +1309,12 @@ class SettingsDialog(QDialog):
         layout.addLayout(launcher_layout)
 
         btn_box = QHBoxLayout()
+        btn_desktop = QPushButton("📌 Create Desktop Shortcut")
+        btn_desktop.setStyleSheet("QPushButton { background-color: #313244; color: #89b4fa; border: 1px solid #45475a; font-weight: bold; padding: 6px 12px; border-radius: 6px; } QPushButton:hover { background-color: #45475a; }")
+        btn_desktop.clicked.connect(self.create_desktop_shortcut)
+        btn_box.addWidget(btn_desktop)
         btn_box.addStretch()
+
         btn_cancel = QPushButton("Cancel")
         btn_cancel.clicked.connect(self.reject)
         btn_box.addWidget(btn_cancel)
@@ -1320,6 +1325,14 @@ class SettingsDialog(QDialog):
         btn_box.addWidget(btn_save)
 
         layout.addLayout(btn_box)
+
+    def create_desktop_shortcut(self):
+        try:
+            from install_desktop_shortcut import install_desktop_shortcut
+            install_desktop_shortcut()
+            QMessageBox.information(self, "Desktop Shortcut Created", "📌 <b>Desktop Shortcut && Application Launcher Created!</b><br><br>You can now launch <b>SPT Stash</b> directly from your Linux Desktop or Application Menu.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error Creating Shortcut", f"Failed to create desktop shortcut: {e}")
 
     def browse_spt_folder(self):
         dir_path = QFileDialog.getExistingDirectory(self, "Select SPT Installation Folder", self.txt_spt.text())

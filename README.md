@@ -10,16 +10,18 @@
 
 ---
 
-### 📋 Overview & Core Capabilities
+## ✨ Core Features
 
-- **🎒 Zero-Copy Symlink Staging**: Stage and un-stage client (`BepInEx/plugins`) and server (`user/mods`) mods without duplicating storage or modifying game files directly.
-- **🎛️ Server Rules & Values (SVM)**: Configure raid duration, item stack limits, trader restocks, metabolism depletion rates, stamina drain, and end-of-raid XP multipliers. *(Requires the [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) server mod).*
-- **👤 PMC Profile & Health Editor**: Manage character level, total XP, nickname, hydration, energy, and current body part health with 1-click full healing.
-- **⚡ Linux Performance & Tuning**: Configure MangoHud, AMD FSR 4 upscaling, DXVK Async shader caching, Feral GameMode, NVIDIA NVAPI optimizations, and CPU core isolation (`taskset`).
-- **🌐 sp-mod.com Forge Integration**: Search, filter, and 1-click install mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic dependency detection.
+- **⚡ Zero-Copy Symlink Staging**: Enable, disable, or swap client (`BepInEx/plugins`) and server (`user/mods`) mods in milliseconds with zero storage duplication.
+- **🎛️ Server Rules & Values (SVM)**: Full GUI for Server Value Modifier settings including item stack limits, metabolism rates (hunger/thirst), stamina drain, raid duration, trader restocks, and raid experience multipliers (`CharXP`). *(Requires [SVM](https://sp-mod.com/mod/236/server-value-modifier-svm)).*
+- **👤 PMC Profile Editor**: Direct profile manager to edit character level, total XP, nickname, hydration, energy, and current body part health with 1-click full healing.
+- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI optimizations**, and **CPU core isolation (`taskset`)**.
+- **🌐 Live Mod Catalog Browser**: Search, filter, and download mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic dependency detection and `.meta.json` sidecar stamping.
 - **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained interactive HTML manifests.
-- **🟢 Fika Co-Op Badges**: View real-time Fika multiplayer compatibility indicators for installed mods.
-- **🎮 Server & Launcher Control**: Direct process control for `server.sh` and `launcher.sh` with active status monitoring.
+- **📦 Multi-File Mod Consolidation**: Bundles client + server files (e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
+- **🟢 Fika Co-Op Compatibility Integration**: Real-time compatibility tracking and badges for co-op multiplayer setups.
+- **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
+- **🎮 Server & Launcher Execution**: Direct process control for `server.sh` and `launcher.sh` with live `pgrep` status monitoring.
 
 ---
 
@@ -54,7 +56,7 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 ---
 
 ### 5. Server Rules & Values Manager (SVM Integration)
-Customize server rules and global game values without manually editing JSON files. Toggle unlimited stamina, adjust hunger and thirst depletion rates, change raid duration, modify trader restocks and markup, set custom item stack limits, and scale end-of-raid experience multipliers (`CharXP`). *(Requires the [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) server mod).*
+Customize server rules and global game values without manually editing JSON files. Toggle unlimited stamina, adjust hunger and thirst depletion rates, change raid duration, modify trader restocks and markup, set custom item stack limits, and scale end-of-raid experience multipliers (`CharXP`). *(Requires [SVM](https://sp-mod.com/mod/236/server-value-modifier-svm)).*
 
 ![Server Rules & Values](docs/screenshots/server_rules_svm.png)
 
@@ -71,21 +73,6 @@ Inspect and update PMC progression and character state. Edit nickname, character
 Enable recommended Linux performance driver flags for your hardware. Toggle **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI/threaded optimizations**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
 
 ![Linux Performance & Launch Tuning](docs/screenshots/linux_performance.png)
-
----
-
-## ✨ Features
-
-- **⚡ Zero-Copy Symlink Staging**: Stage and un-stage client (`BepInEx/plugins`) and server (`user/mods`) mods instantly without duplicating storage or modifying game files directly.
-- **🌐 Live Mod Catalog Browser**: Search, filter, and download mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with automatic `.meta.json` sidecar stamping.
-- **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained HTML manifests. Live state auto-sync updates preset badges whenever mods are toggled or deleted.
-- **🎛️ Server Rules & Values (SVM)**: Full GUI for Server Value Modifier settings including item stack limits, metabolism rates (hunger/thirst), stamina drain, raid duration, trader restocks, and raid experience multipliers. *(Requires [SVM](https://sp-mod.com/mod/236/server-value-modifier-svm)).*
-- **👤 PMC Profile Editor**: Direct profile manager to edit level, total XP, character nickname, current body part health, hydration, energy, and 1-click full heal.
-- **📦 Multi-File Mod Consolidation**: Bundles client + server files (e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
-- **🟢 Fika Co-Op Compatibility Integration**: Automatically queries and displays Fika multiplayer compatibility badges for all installed mods.
-- **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
-- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, and **CPU core isolation (`taskset`)** between server and client processes with 1-click script auto-syncing.
-- **🎮 Server & Launcher Execution**: Direct process control for `server.sh` and `launcher.sh` with live `pgrep` status monitoring.
 
 ---
 
@@ -113,7 +100,7 @@ Click **⚙️ Settings** at the top right of **SPT Stash** to configure your in
 
 ---
 
-## 🚀 Installation & Usage
+## 🚀 Installation & Desktop Shortcut Setup
 
 ### Option 1: Standalone AppImage (Recommended)
 Download the latest pre-compiled `SPT_Stash-x86_64.AppImage` from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases):
@@ -140,6 +127,13 @@ pip install PySide6
 
 # Run SPT Stash
 python3 spt_mod_manager.py
+```
+
+### 📌 1-Click Desktop & Application Launcher Shortcut
+To add **SPT Stash** to your system application menu and desktop:
+
+```bash
+python3 install_desktop_shortcut.py
 ```
 
 ---
