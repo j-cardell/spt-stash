@@ -20,6 +20,8 @@ modules:
     buildsystem: simple
     build-commands:
       - install -D spt_mod_manager.py ${FLATPAK_DEST}/bin/spt_mod_manager.py
+      - cp -r spt_stash ${FLATPAK_DEST}/bin/
+      - cp -r docs ${FLATPAK_DEST}/bin/
       - chmod +x ${FLATPAK_DEST}/bin/spt_mod_manager.py
     sources:
       - type: dir

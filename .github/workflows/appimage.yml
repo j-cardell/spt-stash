@@ -34,6 +34,7 @@ jobs:
         run: |
           pyinstaller --onefile --windowed \
             --name spt-stash \
+            --add-data "docs:docs" \
             spt_mod_manager.py
 
       - name: Structure AppDir Workspace
@@ -53,19 +54,13 @@ jobs:
           Categories=Game;Utility;
           EOF
 
-          # Create default SVG/PNG icon for AppImage tool
-          cat << 'EOF' > AppDir/spt-stash.svg
-          <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="none" stroke="#89b4fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-          EOF
-          cp AppDir/spt-stash.svg AppDir/usr/share/icons/hicolor/256x256/apps/spt-stash.svg
+          # Copy high-res 3D icon
+          cp docs/spt_stash_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/spt-stash.png
+          cp docs/spt_stash_icon.png AppDir/spt-stash.png
 
           # Create top-level AppDir symlinks required by appimagetool
           cp AppDir/usr/share/applications/spt-stash.desktop AppDir/spt-stash.desktop
-          cp AppDir/spt-stash.svg AppDir/.DirIcon
+          cp docs/spt_stash_icon.png AppDir/.DirIcon
 
           # Create AppRun Entrypoint Script
           cat << 'EOF' > AppDir/AppRun

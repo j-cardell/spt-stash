@@ -30,8 +30,13 @@ AppDir/
 *.AppImage
 *.spec
 
+# Local Safety Backups (kept on disk, never committed)
+*.bak
+spt_mod_manager.py.bak
+
 # IDE & OS Files
 .DS_Store
 .vscode/
 .idea/
+.hermes/
 *.swp

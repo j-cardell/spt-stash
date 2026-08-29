@@ -1,0 +1,32 @@
+[project]
+name = "spt-stash"
+version = "1.2.0"
+description = "Native Linux Mod Manager & Performance Suite for Single-Player Tarkov (SPT)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "j-cardell" }]
+dependencies = [
+    "PySide6>=6.5.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [
+    "*.bak",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = [
+    "EXE001",   # shebangs in non-executable module files are intentional here
+    "E501",     # long lines in generated UI strings/stylesheets are not worth reformatting now
+    "S110",     # bare except:pass in image loaders etc; preserve existing behavior during refactor
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
