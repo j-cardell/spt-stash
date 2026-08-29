@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import load_config
-from ..paths import apply_spt_root, ensure_dirs, find_spt_root
+from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
 from ..system.hardware import detect_installed_spt_version
 from ..system.process import is_server_running, stop_server
 from .dialogs import SettingsDialog
@@ -162,8 +162,8 @@ class SPTModManagerWindow(QMainWindow):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(10)
 
-        icon_path = Path(__file__).parent / "docs" / "spt_stash_icon.png"
-        if icon_path.exists():
+        icon_path = find_app_icon()
+        if icon_path and icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
             lbl_icon = QLabel()
             pixmap = QPixmap(str(icon_path)).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)

@@ -30,6 +30,12 @@ class TestSPTModManagerCore(unittest.TestCase):
         self.assertTrue(hasattr(spt_stash, "__version__"))
         self.assertEqual(spt_stash.__version__, "1.2.0")
 
+    def test_find_app_icon(self):
+        """Test application icon resolution."""
+        icon = paths.find_app_icon()
+        self.assertIsNotNone(icon)
+        self.assertTrue(icon.exists())
+
     @classmethod
     def setUpClass(cls):
         # Provide self-contained catalog entries for offline unit testing

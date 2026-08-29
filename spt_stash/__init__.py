@@ -22,6 +22,7 @@ from .paths import (
     STAGED_SERVER,
     apply_spt_root,
     ensure_dirs,
+    find_app_icon,
     find_spt_root,
 )
 from .staging.links import create_relative_symlink, purge_mod_files_and_symlinks
@@ -58,6 +59,7 @@ __all__ = [
     "detect_installed_spt_version",
     "ensure_dirs",
     "fetch_mod_dependencies_sync",
+    "find_app_icon",
     "find_best_catalog_match_global",
     "find_spt_root",
     "generate_html_stash_manifest",

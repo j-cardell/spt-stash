@@ -111,3 +111,18 @@ def ensure_dirs() -> None:
     DOWNLOADS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     STAGED_CLIENT.mkdir(parents=True, exist_ok=True)
     STAGED_SERVER.mkdir(parents=True, exist_ok=True)
+
+
+def find_app_icon() -> Path | None:
+    """Locate the 3D application icon from project files or system paths."""
+    candidates = [
+        Path(__file__).resolve().parent.parent / "docs" / "spt_stash_icon.png",
+        Path(__file__).resolve().parent / "docs" / "spt_stash_icon.png",
+        Path.home() / "development" / "spt-stash" / "docs" / "spt_stash_icon.png",
+        Path.home() / ".local" / "share" / "icons" / "hicolor" / "256x256" / "apps" / "spt-stash.png",
+        Path("/usr/share/icons/hicolor/256x256/apps/spt-stash.png"),
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None

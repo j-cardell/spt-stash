@@ -1,10 +1,10 @@
-# 🎒 SPT Stash
+# <img src="docs/spt_stash_icon.png" width="34" height="34" valign="middle" alt="SPT Stash"> SPT Stash
 
 > **Native Linux Mod Manager & Performance Suite for Single-Player Tarkov (SPT)**
 
 [![CI & Security Audit](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml)
 [![Build & Release AppImage](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml)
-[![License: MIT](https://img.shields.org/badge/license-MIT-green)](LICENSE)
+[![License: MIT](https://img.shields.org/badge/License-MIT-green.svg)](LICENSE)
 
 **SPT Stash** is a high-performance native Linux desktop application designed specifically for Single-Player Tarkov (SPT) on Linux and Steam Deck (SteamOS). It provides **in-tree relative symlink staging**, **official Greed.exe (SVM) integration with Proton selector**, **universal server launching with live IP/port tracking**, **Linux hardware & game launch performance tuning**, **non-blocking animated toast notifications**, and **1-click sp-mod.com Forge catalog browsing & updating**.
 
