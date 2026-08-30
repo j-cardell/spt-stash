@@ -8,15 +8,22 @@ from pathlib import Path
 from .. import paths
 
 
+def remove_path(p):
+    """Remove a file, symlink, or directory tree at p, if it exists."""
+    p = Path(p)
+    if not (p.is_symlink() or p.exists()):
+        return
+    if p.is_symlink() or not p.is_dir():
+        p.unlink()
+    else:
+        shutil.rmtree(p)
+
+
 def create_relative_symlink(src_staged, dst_live):
     """Create dst_live → src_staged as a relative in-tree symlink (abs fallback)."""
     src = Path(src_staged).resolve()
     dst = Path(dst_live)
-    if dst.is_symlink() or dst.exists():
-        if dst.is_symlink() or not dst.is_dir():
-            dst.unlink()
-        else:
-            shutil.rmtree(dst)
+    remove_path(dst)
 
     try:
         rel_target = os.path.relpath(src, dst.parent)
@@ -27,11 +34,7 @@ def create_relative_symlink(src_staged, dst_live):
 
 def _purge_single(staged_item, live_link):
     """Remove live link + staged dir + sidecar, shared by both branches."""
-    if live_link.is_symlink() or live_link.exists():
-        if live_link.is_symlink() or not live_link.is_dir():
-            live_link.unlink()
-        else:
-            shutil.rmtree(live_link)
+    remove_path(live_link)
     if staged_item.exists():
         if staged_item.is_dir():
             shutil.rmtree(staged_item)

@@ -3,7 +3,6 @@
 
 import html
 import os
-import shutil
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QDesktopServices, QIcon
@@ -27,6 +26,7 @@ from PySide6.QtWidgets import (
 from ...catalog.dependencies import check_dep_status, fetch_mod_dependencies_sync
 from ...catalog.workers import DependencyFetcherThread, RSSFetcherThread
 from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR
+from ...staging.links import remove_path
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
@@ -414,11 +414,8 @@ def start_mod_download(self):
     mod_status, target_path = check_dep_status(mod.get("title", ""))
 
     if mod_status == "ENABLED":
-        if target_path and (target_path.is_symlink() or target_path.exists()):
-            if target_path.is_symlink() or not target_path.is_dir():
-                target_path.unlink()
-            else:
-                shutil.rmtree(target_path)
+        if target_path:
+            remove_path(target_path)
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
@@ -430,11 +427,7 @@ def start_mod_download(self):
             is_server = "server" in str(target_path).lower()
             live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
             live_link = live_dir / target_path.name
-            if live_link.is_symlink() or live_link.exists():
-                if live_link.is_symlink() or not live_link.is_dir():
-                    live_link.unlink()
-                else:
-                    shutil.rmtree(live_link)
+            remove_path(live_link)
             os.symlink(str(target_path), str(live_link))
         self.load_installed_mods()
         self.list_remote.viewport().update()
@@ -471,11 +464,7 @@ def start_mod_download(self):
                 is_server = "server" in str(staged_path).lower()
                 live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
                 live_link = live_dir / staged_path.name
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
                 os.symlink(str(staged_path), str(live_link))
                 dep["status"] = "ENABLED"
                 dep["installed"] = True

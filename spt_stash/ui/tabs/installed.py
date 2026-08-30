@@ -3,7 +3,6 @@
 
 import html
 import re
-import shutil
 import subprocess
 import urllib.parse
 import urllib.request
@@ -32,7 +31,7 @@ from ...catalog.dependencies import fetch_mod_dependencies_sync
 from ...catalog.matching import find_best_catalog_match_global, resolve_author_profile_url
 from ...catalog.workers import ModDetailFetcherThread
 from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR, STAGED_CLIENT, STAGED_SERVER
-from ...staging.links import create_relative_symlink, purge_mod_files_and_symlinks
+from ...staging.links import create_relative_symlink, purge_mod_files_and_symlinks, remove_path
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
 from ...version import is_version_newer
@@ -647,17 +646,9 @@ def bulk_disable_selected(self):
             client_items = mod.get("client_items", [])
             server_items = mod.get("server_items", [])
             for _, live_link, _ in client_items:
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
             for _, live_link, _ in server_items:
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
             disabled_count += 1
 
     self.load_installed_mods()
@@ -1072,11 +1063,7 @@ def toggle_mod(self, mod):
                             dep_p = d["path"]
                             is_srv = "server" in str(dep_p).lower()
                             link_p = (SERVER_MODS_DIR if is_srv else CLIENT_MODS_DIR) / dep_p.name
-                            if link_p.is_symlink() or link_p.exists():
-                                if link_p.is_symlink() or not link_p.is_dir():
-                                    link_p.unlink()
-                                else:
-                                    shutil.rmtree(link_p)
+                            remove_path(link_p)
                             create_relative_symlink(dep_p, link_p)
 
             client_items = mod.get("client_items", [])
@@ -1095,18 +1082,10 @@ def toggle_mod(self, mod):
             server_items = mod.get("server_items", [])
 
             for _, live_link, _ in client_items:
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
 
             for _, live_link, _ in server_items:
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
 
             if hasattr(self, "toast"):
                 self.toast.info(f"Disabled {mod['name']}")
