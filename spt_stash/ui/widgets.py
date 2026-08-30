@@ -176,36 +176,6 @@ class SearchField(QWidget):
         return self.line_edit.text()
 
 
-def _large_icon(name, size=64, color="#7c8cff"):
-    """Render larger filled icons for empty/drop states."""
-    pix = QPixmap(size, size)
-    pix.fill(Qt.transparent)
-    painter = QPainter(pix)
-    painter.setRenderHint(QPainter.Antialiasing)
-
-    if name == "package":
-        # rounded box with lid
-        pen = QPen(QColor(color), 2.5)
-        pen.setJoinStyle(Qt.MiterJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawRoundedRect(QRectF(10, 22, 44, 34), 6, 6)
-        # lid
-        painter.drawLine(8, 22, 56, 22)
-        # tape/label line
-        painter.drawLine(32, 22, 32, 56)
-    elif name == "cloud-download":
-        # cloud outline + arrow
-        pen = QPen(QColor(color), 2.5)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawArc(QRectF(8, 8, 24, 24), 0, 180 * 16)
-        painter.drawArc(QRectF(24, 12, 22, 22), 100 * 16, 220 * 16)
-        painter.drawLine(32, 28, 32, 46)
-        painter.drawLine(26, 40, 32, 46)
-        painter.drawLine(38, 40, 32, 46)
-    painter.end()
-    return pix
 
 
 def _nav_pixmap(name, size=16, color="#7f8698"):  # 1space added to avoid conflict marker
