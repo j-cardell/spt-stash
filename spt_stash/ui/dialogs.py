@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SPT Stash — application dialogs (Settings, StageInstall, SavePreset) with V4 styling."""
 
+import logging
 import os
 import shutil
 import subprocess
@@ -30,6 +31,8 @@ from ..paths import DOWNLOADS_CACHE_DIR
 from ..staging.links import create_relative_symlink
 from ..system.hardware import find_umu_run, find_wine_prefix, get_available_proton_versions
 from .widgets import _nav_pixmap
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsDialog(QDialog):

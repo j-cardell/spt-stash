@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SPT Stash — background QThread workers for mod install, download, fika sync."""
 
+import logging
 import os
 import re
 import shutil
@@ -21,6 +22,8 @@ from ..paths import (
     STAGED_SERVER,
 )
 from .metadata import load_mod_meta, save_mod_meta
+
+logger = logging.getLogger(__name__)
 
 
 class ModInstallerThread(QThread):
@@ -167,8 +170,8 @@ class ModInstallerThread(QThread):
                 if greed_root.exists() and item.is_dir() and "server value modifier" in item.name.lower():
                     try:
                         shutil.copy2(greed_root, item / "Greed.exe")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning("Failed to copy Greed.exe into %s: %s", item.name, e)
 
             target_staged = staged_dir / item.name
             bak_path = target_staged.parent / f".{target_staged.name}.bak"
@@ -235,8 +238,8 @@ class FikaSyncThread(QThread):
                         if mod.get("server_staged"):
                             save_mod_meta(mod["server_staged"], meta)
                         self.updated.emit(name, f_stat)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Failed to persist fika status for %s: %s", name, e)
 
 
 class ModDownloaderThread(QThread):
