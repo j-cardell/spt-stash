@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -29,15 +28,18 @@ from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
-from ..widgets import ModItemDelegate, RemoteImageTextBrowser
+from ..widgets import ModItemDelegate, RemoteImageTextBrowser, SearchField
 
 
 def setup_browse_tab(self):
     layout = QVBoxLayout(self.tab_browse)
+    layout.setContentsMargins(20, 16, 20, 16)
+    layout.setSpacing(12)
 
     filter_layout = QHBoxLayout()
-    self.browse_search = QLineEdit()
-    self.browse_search.setPlaceholderText("Search online mods...")
+    filter_layout.setSpacing(8)
+
+    self.browse_search = SearchField(width=260, placeholder="Search online mods...")
     self.browse_search.textChanged.connect(self.filter_remote_mods)
     filter_layout.addWidget(self.browse_search)
 
@@ -61,18 +63,22 @@ def setup_browse_tab(self):
 
     self.installed_spt_ver = detect_installed_spt_version()
     self.chk_installed_version = QCheckBox(f"Filter for Installed ({self.installed_spt_ver})")
-    self.chk_installed_version.setStyleSheet("font-weight: bold; color: #a6e3a1;")
+    self.chk_installed_version.setStyleSheet("font-weight: 600; color: #7f8698;")
     self.chk_installed_version.setChecked(True)
     self.chk_installed_version.toggled.connect(self.filter_remote_mods)
     filter_layout.addWidget(self.chk_installed_version)
 
-    btn_fetch = QPushButton("🌐 Refresh Feed")
+    btn_fetch = QPushButton("↻")
+    btn_fetch.setProperty("role", "ghost")
+    btn_fetch.setProperty("size", "sm")
+    btn_fetch.setToolTip("Refresh catalog feed")
     btn_fetch.clicked.connect(lambda: self.fetch_remote_mods(force_refresh=True))
     filter_layout.addWidget(btn_fetch)
 
     layout.addLayout(filter_layout)
 
     splitter = QSplitter(Qt.Horizontal)
+    splitter.setStyleSheet("QSplitter::handle { background-color: #232733; width: 1px; }")
 
     self.list_remote = QListWidget()
     self.list_remote.setSpacing(4)
@@ -83,31 +89,29 @@ def setup_browse_tab(self):
 
     right_widget = QWidget()
     right_layout = QVBoxLayout(right_widget)
+    right_layout.setContentsMargins(12, 0, 0, 0)
+    right_layout.setSpacing(10)
 
     self.web_detail = RemoteImageTextBrowser()
     self.web_detail.setOpenExternalLinks(True)
+    self.web_detail.setStyleSheet(
+        "background-color: #14161d; border: 1px solid #232733; border-radius: 8px; color: #eceef3; padding: 12px;"
+    )
     right_layout.addWidget(self.web_detail)
 
     bot_btn_layout = QHBoxLayout()
+    bot_btn_layout.setSpacing(8)
 
-    btn_style_base = "font-size: 13px; font-weight: bold; padding: 6px 16px; border-radius: 6px; height: 32px;"
-
-    self.btn_download_mod = QPushButton("📥 Download && Install Mod")
-    self.btn_download_mod.setFixedHeight(36)
-    self.btn_download_mod.setStyleSheet("""
-        QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-        QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
-        QPushButton:disabled { background-color: #1e1e2e; color: #585b70; border: 1px solid #313244; }
-    """)
+    self.btn_download_mod = QPushButton("📥 Download & Install Mod")
+    self.btn_download_mod.setProperty("role", "success")
+    self.btn_download_mod.setProperty("size", "lg")
     self.btn_download_mod.clicked.connect(self.start_mod_download)
     self.btn_download_mod.setEnabled(False)
     bot_btn_layout.addWidget(self.btn_download_mod)
 
-    self.btn_open_web = QPushButton("🔗 Open Page on sp-mod.com")
-    self.btn_open_web.setFixedHeight(36)
-    self.btn_open_web.setStyleSheet(
-        f"background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; {btn_style_base}"
-    )
+    self.btn_open_web = QPushButton("Open Page on sp-mod.com")
+    self.btn_open_web.setProperty("role", "ghost")
+    self.btn_open_web.setProperty("size", "lg")
     self.btn_open_web.clicked.connect(self.open_mod_in_browser)
     self.btn_open_web.setEnabled(False)
     bot_btn_layout.addWidget(self.btn_open_web)
@@ -115,7 +119,7 @@ def setup_browse_tab(self):
     right_layout.addLayout(bot_btn_layout)
 
     splitter.addWidget(right_widget)
-    splitter.setSizes([450, 550])
+    splitter.setSizes([430, 570])
 
     layout.addWidget(splitter)
 
@@ -216,76 +220,84 @@ def render_mod_detail_html(self, mod):
     fika_status = mod.get("fika_status", "Unknown")
     has_ai = mod.get("has_ai", False)
 
+    # V4 palette mapped to inline HTML
+    BG = "#14161d"
+    BORDER = "#232733"
+    ACCENT = "#7c8cff"
+    TEXT = "#eceef3"
+    TEXT_MUTED = "#7f8698"
+    SUCCESS = "#4ade80"
+    DANGER = "#f87171"
+    WARNING = "#fbbf24"
+
     guid_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0; width:130px;'><b>GUID:</b></td><td><code style='color:#a6e3a1; font-family:monospace;'>{html.escape(guid)}</code></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>GUID:</b></td><td><code style='color:{SUCCESS}; font-family:monospace;'>{html.escape(guid)}</code></td></tr>"
         if guid
         else ""
     )
     license_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>License:</b></td><td>{html.escape(license_str)}</td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>License:</b></td><td>{html.escape(license_str)}</td></tr>"
         if license_str
         else ""
     )
     src_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>Source Code:</b></td><td><a href='{html.escape(src_code)}' style='color:#89b4fa;'>{html.escape(src_code)}</a></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Source Code:</b></td><td><a href='{html.escape(src_code)}' style='color:{ACCENT};'>{html.escape(src_code)}</a></td></tr>"
         if src_code
         else ""
     )
     vt_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>VirusTotal:</b></td><td><a href='{html.escape(vt_url)}' style='color:#a6e3a1;'>Clean Scan Results</a></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>VirusTotal:</b></td><td><a href='{html.escape(vt_url)}' style='color:{SUCCESS};'>Clean Scan Results</a></td></tr>"
         if vt_url
         else ""
     )
     ai_html = (
-        "<tr><td style='color:#a6adc8; padding:4px 0;'><b>AI Content:</b></td><td><span style='color:#cba6f7;'>🤖 Includes AI Content</span></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>AI Content:</b></td><td><span style='color:{ACCENT};'>Includes AI Content</span></td></tr>"
         if has_ai
         else ""
     )
 
     if "Compatible" in fika_status or fika_status == "Yes":
-        fika_badge = "<span style='color:#a6e3a1; font-weight:bold;'>🟢 Fika Compatible Version Available</span>"
+        fika_badge = f"<span style='color:{SUCCESS}; font-weight:bold;'>Fika Compatible Version Available</span>"
     elif "Incompatible" in fika_status or fika_status == "No":
-        fika_badge = "<span style='color:#f38ba8; font-weight:bold;'>🔴 Fika Incompatible</span>"
+        fika_badge = f"<span style='color:{DANGER}; font-weight:bold;'>Fika Incompatible</span>"
     else:
-        fika_badge = "<span style='color:#fab387;'>🟡 Compatibility Unknown</span>"
+        fika_badge = f"<span style='color:{WARNING};'>Compatibility Unknown</span>"
 
-    stats_html = f"📥 {dl_cnt:,} downloads  •  👍 {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
+    stats_html = f"⬇ {dl_cnt:,} downloads  •  ★ {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
 
     card_html = f"""
-    <div style='background-color:#181825; border:1px solid #313244; border-radius:12px; padding:16px; margin-bottom:16px;'>
-        <h3 style='color:#89b4fa; margin:0 0 12px 0;'>📋 Mod Details & Author Info</h3>
-        <table style='width:100%; font-size:13px; color:#cdd6f4; border-collapse:collapse;'>
-            <tr><td style='color:#a6adc8; padding:4px 0; width:130px;'><b>Author / Creator:</b></td><td><b style='color:#89b4fa;'>{creator}</b></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Version:</b></td><td><span style='color:#fab387; font-weight:bold;'>v{ver}</span></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Target SPT:</b></td><td><span style='color:#a6e3a1; font-weight:bold;'>{spt_ver}</span></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Category:</b></td><td><span style='background-color:#313244; color:#89dceb; padding:2px 8px; border-radius:4px;'>{cat}</span></td></tr>
+    <div style='background-color:{BG}; border:1px solid {BORDER}; border-radius:8px; padding:14px; margin-bottom:14px;'>
+        <h3 style='color:{TEXT}; margin:0 0 12px 0; font-size:14px;'>Mod Details & Author Info</h3>
+        <table style='width:100%; font-size:12.5px; color:{TEXT}; border-collapse:collapse;'>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>Author:</b></td><td><b style='color:{ACCENT};'>{creator}</b></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Version:</b></td><td><span style='color:{TEXT}; font-weight:bold;'>v{ver}</span></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Target SPT:</b></td><td><span style='color:{SUCCESS}; font-weight:bold;'>{spt_ver}</span></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Category:</b></td><td><span style='background-color:rgba(124,140,255,0.12); color:{ACCENT}; padding:2px 8px; border-radius:4px;'>{cat}</span></td></tr>
             {guid_html}
             {license_html}
             {src_html}
             {vt_html}
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Fika Status:</b></td><td>{fika_badge}</td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Fika Status:</b></td><td>{fika_badge}</td></tr>
             {ai_html}
-            {"<tr><td style='color:#a6adc8; padding:4px 0;'><b>Stats:</b></td><td>" + stats_html + "</td></tr>" if stats_html else ""}
+            {"<tr><td style='color:" + TEXT_MUTED + "; padding:4px 0;'><b>Stats:</b></td><td>" + stats_html + "</td></tr>" if stats_html else ""}
         </table>
     </div>
     """
     deps = mod.get("dependencies", [])
     dep_html = ""
     if deps:
-        dep_html = "<div style='background-color:#181825; border:1px solid #fab387; border-radius:8px; padding:12px; margin-top:14px;'>"
-        dep_html += f"<h3 style='color:#fab387; margin:0 0 8px 0;'>🔗 Required Dependencies ({len(deps)}):</h3>"
+        dep_html = f"<div style='background-color:{BG}; border:1px solid {BORDER}; border-radius:8px; padding:12px; margin-top:14px;'>"
+        dep_html += f"<h3 style='color:{TEXT}; margin:0 0 8px 0; font-size:14px;'>Required Dependencies ({len(deps)}):</h3>"
         for d in deps:
             st = d.get("status")
             if st == "ENABLED" or d.get("installed"):
-                status_text = "<span style='color:#a6e3a1; font-weight:bold;'>(✅ Installed && Enabled)</span>"
+                status_text = f"<span style='color:{SUCCESS}; font-weight:bold;'>(Installed & Enabled)</span>"
             elif st == "STAGED_DISABLED":
-                status_text = "<span style='color:#fab387; font-weight:bold;'>(⚠️ In Stash, Disabled — Auto-enables on Download)</span>"
+                status_text = f"<span style='color:{WARNING}; font-weight:bold;'>(In Stash, Disabled — Auto-enables on Download)</span>"
             else:
-                status_text = (
-                    "<span style='color:#f38ba8; font-weight:bold;'>(❌ Missing — Auto-installs on Download)</span>"
-                )
+                status_text = f"<span style='color:{DANGER}; font-weight:bold;'>(Missing — Auto-installs on Download)</span>"
 
-            dep_html += f"<p style='margin:4px 0;'>• <b>{d['title']}</b> {status_text}</p>"
+            dep_html += f"<p style='margin:4px 0; color:{TEXT};'>• <b>{d['title']}</b> {status_text}</p>"
         dep_html += "</div>"
 
     return mod.get("description", "") + dep_html + card_html
@@ -307,20 +319,20 @@ def on_remote_mod_selected(self):
     if status == "ENABLED":
         self.btn_download_mod.setText("⏸ Disable Installed Mod")
         self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #3a232e; color: #f38ba8; border: 1px solid #542f3e; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #4a2c3b; border-color: #f38ba8; }
+            QPushButton { background-color: rgba(248, 113, 113, 0.10); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.22); font-size: 13px; font-weight: bold; border-radius: 6px; }
+            QPushButton:hover { background-color: rgba(248, 113, 113, 0.16); border-color: rgba(248, 113, 113, 0.35); }
         """)
     elif status == "STAGED_DISABLED":
         self.btn_download_mod.setText("▶ Enable Installed Mod")
         self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
+            QPushButton { background-color: rgba(74, 222, 128, 0.08); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.18); font-size: 13px; font-weight: bold; border-radius: 6px; }
+            QPushButton:hover { background-color: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.30); }
         """)
     else:
-        self.btn_download_mod.setText("📥 Download && Install Mod")
+        self.btn_download_mod.setText("⬇ Download && Install Mod")
         self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
+            QPushButton { background-color: rgba(74, 222, 128, 0.08); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.18); font-size: 13px; font-weight: bold; border-radius: 6px; }
+            QPushButton:hover { background-color: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.30); }
         """)
 
     self.web_detail.setHtml(self.render_mod_detail_html(mod))

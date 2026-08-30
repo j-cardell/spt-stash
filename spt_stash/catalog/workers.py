@@ -8,7 +8,7 @@ import urllib.request
 
 from PySide6.QtCore import QThread, Signal
 
-from ..paths import CATALOG_CACHE_FILE
+from .. import paths
 from .dependencies import fetch_mod_dependencies_sync
 
 
@@ -26,8 +26,8 @@ class RSSFetcherThread(QThread):
     def run(self):
         try:
             # Use the disk cache unless a force refresh is requested
-            if not self.force_refresh and CATALOG_CACHE_FILE.exists():
-                with open(CATALOG_CACHE_FILE, encoding="utf-8") as f:
+            if not self.force_refresh and paths.CATALOG_CACHE_FILE.exists():
+                with open(paths.CATALOG_CACHE_FILE, encoding="utf-8") as f:
                     mods = json.load(f)
                 self.progress.emit(
                     f"Loaded {len(mods)} mods from offline disk cache (0 network requests made). "
@@ -131,7 +131,7 @@ class RSSFetcherThread(QThread):
                 if len(blocks) < 50:
                     break
 
-            with open(CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
+            with open(paths.CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
                 json.dump(mods, f, indent=2)
 
             self.fetched.emit(mods)

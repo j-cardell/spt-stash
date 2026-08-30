@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SPT Stash — V3 Hybrid Split</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1014;
+    --surface: #15171e;
+    --surface2: #1b1e27;
+    --border: #242833;
+    --text: #e8eaf0;
+    --text-muted: #82899b;
+    --accent: #8b8efb;
+    --success: #4ade80;
+    --danger: #f87171;
+    --radius: 10px;
+    --rail-w: 64px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh;
+    display: flex; overflow: hidden; font-size: 13.5px; line-height: 1.5;
+  }
+
+  /* Icon rail */
+  .rail { width: var(--rail-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 2px; }
+  .rail-logo { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #c084fc); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 15px; margin-bottom: 14px; }
+  .rail-btn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; position: relative; transition: all 0.15s; }
+  .rail-btn:hover { color: var(--text); background: var(--surface2); }
+  .rail-btn.active { color: var(--accent); background: var(--surface2); }
+  .rail-btn.active::before { content:''; position: absolute; left: -11px; width: 3px; height: 20px; background: var(--accent); border-radius: 0 3px 3px 0; }
+  .rail-spacer { flex: 1; }
+  .rail-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); margin-bottom: 8px; }
+  .rail-dot.running { background: var(--success); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .header { padding: 16px 22px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+  .header-sub { color: var(--text-muted); font-size: 12.5px; }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s; height: 34px; }
+  .btn:hover { background: #232734; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #0d0d12; font-weight: 700; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost { background: transparent; }
+  .btn-sm { padding: 5px 10px; font-size: 11.5px; height: 28px; }
+
+  .searchbar { padding: 14px 22px; display: flex; gap: 10px; }
+  .search { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; color: var(--text); font-size: 13px; outline: none; max-width: 420px; }
+  .search:focus { border-color: var(--accent); }
+  .search::placeholder { color: var(--text-muted); }
+  .filter { display: flex; gap: 6px; margin-left: auto; }
+  .filter-btn { padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; background: transparent; border: 1px solid transparent; }
+  .filter-btn.active { color: var(--text); background: var(--surface2); border-color: var(--border); }
+
+  /* Split view */
+  .split { flex: 1; display: flex; overflow: hidden; border-top: 1px solid var(--border); }
+  .list-col { flex: 1.15; overflow-y: auto; border-right: 1px solid var(--border); }
+  .list-item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.12s; }
+  .list-item:hover { background: rgba(255,255,255,0.02); }
+  .list-item.active { background: var(--surface2); border-left: 2px solid var(--accent); padding-left: 18px; }
+  .list-item.disabled { opacity: 0.55; }
+  .item-check { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+  .item-body { flex: 1; min-width: 0; }
+  .item-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-meta { color: var(--text-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fika-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .fika-ok { background: var(--success); }
+  .fika-maybe { background: var(--text-muted); }
+
+  /* Toggle switch */
+  .switch { width: 34px; height: 19px; background: var(--surface2); border-radius: 99px; position: relative; cursor: pointer; transition: background 0.2s; border: 1px solid var(--border); flex-shrink: 0; }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; background: var(--text-muted); border-radius: 50%; transition: all 0.2s; }
+  .switch.on { background: rgba(74,222,128,0.25); border-color: rgba(74,222,128,0.4); }
+  .switch.on::after { left: 17px; background: var(--success); }
+
+  /* Detail pane */
+  .detail { flex: 1; overflow-y: auto; padding: 22px; }
+  .detail-img { width: 100%; height: 130px; background: linear-gradient(135deg, #2a2540, #1a2b3d); border-radius: var(--radius); margin-bottom: 16px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; border: 1px solid var(--border); }
+  .detail h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 4px; }
+  .detail-author { color: var(--accent); font-size: 12.5px; font-weight: 600; margin-bottom: 14px; }
+  .detail-tags { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+  .tag.green { color: var(--success); border-color: rgba(74,222,128,0.25); background: rgba(74,222,128,0.08); }
+  .detail p { color: var(--text-muted); font-size: 12.5px; margin-bottom: 18px; line-height: 1.65; }
+  .detail-actions { display: flex; gap: 8px; }
+  .detail-actions .btn-danger { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: var(--danger); }
+
+  /* Footer */
+  .footer { padding: 10px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; color: var(--text-muted); font-size: 12px; background: var(--surface); }
+</style>
+</head>
+<body>
+
+<nav class="rail">
+  <div class="rail-logo">S</div>
+  <div class="rail-btn active" title="Installed Mods">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+  </div>
+  <div class="rail-btn" title="Presets">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+  </div>
+  <div class="rail-btn" title="Browse Forge">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+  </div>
+  <div class="rail-btn" title="Install Archive">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  </div>
+  <div class="rail-btn" title="Performance">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-dot" title="Server stopped"></div>
+  <div class="rail-btn" title="Settings">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="header">
+    <div>
+      <h1>Installed Mods</h1>
+      <div class="header-sub">67 packages · 66 enabled · 2 updates</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost">Start Server</button>
+      <button class="btn btn-primary">▶ Launch SPT</button>
+    </div>
+  </div>
+
+  <div class="searchbar">
+    <input class="search" placeholder="Search mods...">
+    <div class="filter">
+      <div class="filter-btn active">All</div>
+      <div class="filter-btn">Enabled</div>
+      <div class="filter-btn">Updates</div>
+      <div class="filter-btn">Fika</div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="list-col" id="list"></div>
+    <div class="detail" id="detail">
+      <div class="detail-img">Screenshot / Banner</div>
+      <h2 id="dName">AutoDeposit</h2>
+      <div class="detail-author" id="dAuthor">by Tyfon · v6.0.0</div>
+      <div class="detail-tags" id="dTags">
+        <span class="tag">Client (BepInEx)</span>
+        <span class="tag green">Fika Compatible</span>
+      </div>
+      <p id="dDesc">Automatically deposits loose loot and currency into your stash after raids. Configurable filters let you control which item types are moved, keeping quest items safe in your inventory.</p>
+      <div class="detail-actions">
+        <button class="btn">View on Forge</button>
+        <button class="btn">Open Folder</button>
+        <button class="btn btn-danger">Uninstall</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>SPT 4.1.3 · Server stopped (127.0.0.1:6969)</span>
+    <span><span id="selCount">0</span> selected · <a href="#" style="color:var(--accent);text-decoration:none" onclick="selAll(true);return false">Select all</a> · <a href="#" style="color:var(--text-muted);text-decoration:none" onclick="selAll(false);return false">Clear</a></span>
+  </div>
+</main>
+
+<script>
+const mods = [
+  {name:"Adaptive Bot Culling", version:"v1.2.0", type:"Client", fika:0, author:"Hysocs", on:true, desc:"Dynamically limits active AI bots based on distance and visibility, freeing CPU cycles for what matters on-screen."},
+  {name:"Amands' Sense - Updated", version:"v3.1.0", type:"Client", fika:0, author:"DrakiaXYZ", on:true, desc:"Adds configurable object highlighting, loot outlines, and a tactical sense overlay for containers and loose loot."},
+  {name:"Amands's Graphics", version:"v1.8.0", type:"Client", fika:1, author:"Amands2Mello", on:true, desc:"Post-processing suite: color grading, bloom, sharpen and ambient occlusion tuned for Tarkov's lighting."},
+  {name:"Armbands For All", version:"v1.1.0", type:"Client", fika:0, author:"acidphantasm", on:true, desc:"Gives every PMC, scav, and raider a faction-colored armband for instant friend-or-foe identification."},
+  {name:"Armor Class Icon", version:"v1.1.1", type:"Client", fika:0, author:"xvotex", on:true, desc:"Shows armor class icons directly on gear cards and in the inspect window."},
+  {name:"ASBP - Acid's Scalable BepInEx Panel", version:"v1.0.0", type:"Client", fika:1, author:"acidphantasm", on:true, desc:"Customizable in-game UI panel framework used by Acid's other mods."},
+  {name:"Auto Ranging", version:"v2.0.0", type:"Client", fika:0, author:"Vultify", on:true, desc:"Automatically adjusts scope zeroing based on measured target distance."},
+  {name:"AutoCorpseSearch", version:"v2.0.0", type:"Client", fika:0, author:"Hysocs", on:true, desc:"Auto-searches corpses when you walk over them with configurable delay."},
+  {name:"AutoDeposit", version:"v6.0.0", type:"Client", fika:1, author:"Tyfon", on:true, desc:"Automatically deposits loose loot and currency into your stash after raids. Configurable filters keep quest items safe."},
+  {name:"BALL - Better Ammo Loading List", version:"v1.1.1", type:"Client", fika:1, author:"Katrin0522", on:true, desc:"Smart ammo fill ordering and multi-magazine loading presets."},
+  {name:"Better Keys NG", version:"v1.8.0", type:"Server", fika:1, author:"flip", on:true, desc:"Rebalances key spawn rates and adds tooltip info about what each key opens."},
+  {name:"BigBrain", version:"v1.5.0", type:"Client", fika:0, author:"DrakiaXYZ", on:false, desc:"Foundation library that lets other mods add custom bot logic layers."},
+  {name:"Borkel's Realistic NVGs", version:"v2.0.1", type:"Dual", fika:1, author:"Borkel", on:true, desc:"Realistic night vision simulation with proper brightness zones, noise, and IR illuminator support."},
+  {name:"Corpse Clean Up", version:"v1.4.0", type:"Client", fika:1, author:"Hysocs", on:true, desc:"Removes distant or looted corpses over time to keep the map performing."},
+  {name:"Custom Raid Times", version:"v2.3.0", type:"Server", fika:0, author:"acidphantasm", on:true, desc:"Per-map raid duration, day/night cycle control, and time acceleration."},
+];
+
+const list = document.getElementById('list');
+mods.forEach((m,i)=>{
+  list.innerHTML += `
+    <div class="list-item ${m.on?'':'disabled'} ${i===8?'active':''}" onclick="pick(${i},this)">
+      <input type="checkbox" class="item-check" onclick="event.stopPropagation();updCount()">
+      <div class="item-body">
+        <div class="item-name">${m.name}</div>
+        <div class="item-meta">${m.version} · ${m.author}</div>
+      </div>
+      <span class="fika-dot ${m.fika?'fika-ok':'fika-maybe'}" title="${m.fika?'Fika compatible':'Fika unknown'}"></span>
+      <div class="switch ${m.on?'on':''}" onclick="event.stopPropagation(); this.classList.toggle('on'); this.parentElement.classList.toggle('disabled');"></div>
+    </div>`;
+});
+
+function pick(i, el){
+  document.querySelectorAll('.list-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  const m = mods[i];
+  document.getElementById('dName').textContent = m.name;
+  document.getElementById('dAuthor').textContent = 'by '+m.author+' · '+m.version;
+  document.getElementById('dTags').innerHTML = `<span class="tag">${m.type}</span>${m.fika?'<span class="tag green">Fika Compatible</span>':'<span class="tag">Fika Unknown</span>'}`;
+  document.getElementById('dDesc').textContent = m.desc;
+}
+function selAll(on){
+  document.querySelectorAll('.item-check').forEach(c=>c.checked=on); updCount();
+}
+function updCount(){
+  document.getElementById('selCount').textContent = document.querySelectorAll('.item-check:checked').length;
+}
+updCount();
+</script>
+</body>
+</html>

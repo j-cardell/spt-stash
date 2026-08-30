@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SPT Stash — application dialogs (Settings, StageInstall, SavePreset)."""
+"""SPT Stash — application dialogs (Settings, StageInstall, SavePreset) with V4 styling."""
 
 import os
 import shutil
@@ -34,27 +34,35 @@ from ..system.hardware import find_umu_run, find_wine_prefix, get_available_prot
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("⚙️ SPT Stash Settings")
-        self.resize(650, 420)
+        self.setWindowTitle("Settings — SPT Stash")
+        self.resize(680, 480)
         self.setStyleSheet("""
-            QDialog { background-color: #1e1e2e; color: #cdd6f4; }
-            QLabel { color: #cdd6f4; font-weight: bold; font-size: 13px; }
-            QLineEdit { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 6px; border-radius: 6px; }
-            QPushButton { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 6px 14px; border-radius: 6px; }
-            QPushButton:hover { background-color: #45475a; }
+            QDialog { background-color: #0f1016; color: #eceef3; }
+            QLabel { color: #eceef3; font-size: 13px; }
+            QLineEdit { background-color: #14161d; border: 1px solid #232733; color: #eceef3; padding: 7px 10px; border-radius: 6px; }
+            QLineEdit:focus { border-color: #7c8cff; }
+            QPushButton { background-color: #1a1d27; border: 1px solid #232733; color: #eceef3; padding: 6px 14px; border-radius: 6px; }
+            QPushButton:hover { background-color: #232733; border-color: #383e52; }
+            QComboBox { background-color: #14161d; color: #eceef3; border: 1px solid #232733; padding: 6px 10px; border-radius: 6px; }
+            QComboBox QAbstractItemView { background-color: #14161d; color: #eceef3; selection-background-color: #232733; border: 1px solid #232733; }
         """)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
 
         self.cfg = load_config()
 
         def _row(label_text, help_text, line_edit, browse_handler):
-            lbl = QLabel(label_text)
-            help_lbl = QLabel(help_text)
+            lbl = QLabel(f"<b>{label_text}</b>")
+            help_lbl = QLabel(f"<small style='color: #7f8698;'>{help_text}</small>")
             help_lbl.setWordWrap(True)
             row = QHBoxLayout()
+            row.setSpacing(8)
             row.addWidget(line_edit)
             btn = QPushButton("Browse...")
+            btn.setProperty("role", "ghost")
+            btn.setProperty("size", "sm")
             btn.clicked.connect(browse_handler)
             row.addWidget(btn)
             layout.addWidget(lbl)
@@ -67,8 +75,7 @@ class SettingsDialog(QDialog):
         )
         _row(
             "SPT Installation Folder:",
-            "<small style='color: #a6adc8;'>Root directory containing server.sh, launcher.sh, "
-            "BepInEx, and SPT_Runtime (e.g. ~/Games/SPT). Do NOT select Wine/Proton prefix.</small>",
+            "Root directory containing server.sh, launcher.sh, BepInEx, and SPT_Runtime (e.g. ~/Games/SPT).",
             self.txt_spt,
             self.browse_spt_folder,
         )
@@ -77,8 +84,7 @@ class SettingsDialog(QDialog):
         self.txt_staged.setToolTip("Directory where SPT Stash stores downloaded and extracted mod files.")
         _row(
             "Mod Staging Stash Directory:",
-            "<small style='color: #a6adc8;'>Local directory where SPT Stash downloads and stages "
-            "mods before symlinking into the game.</small>",
+            "Local directory where SPT Stash downloads and stages mods before symlinking into the game.",
             self.txt_staged,
             self.browse_staged_folder,
         )
@@ -87,8 +93,7 @@ class SettingsDialog(QDialog):
         self.txt_server.setToolTip("Executable path to server.sh or SPT.Server.exe.")
         _row(
             "Start Server Script Path:",
-            "<small style='color: #a6adc8;'>Path to server.sh (or SPT.Server.exe) used to launch "
-            "the SPT server process.</small>",
+            "Path to server.sh (or SPT.Server.exe) used to launch the SPT server process.",
             self.txt_server,
             self.browse_server_script,
         )
@@ -97,24 +102,18 @@ class SettingsDialog(QDialog):
         self.txt_launcher.setToolTip("Executable path to launcher.sh or SPT.Launcher.exe.")
         _row(
             "Launch SPT / Launcher Script Path:",
-            "<small style='color: #a6adc8;'>Path to launcher.sh (or SPT.Launcher.exe) used to launch the game.</small>",
+            "Path to launcher.sh (or SPT.Launcher.exe) used to launch the game.",
             self.txt_launcher,
             self.browse_launcher_script,
         )
 
-        lbl_proton = QLabel("Proton / Compatibility Runner:")
+        lbl_proton = QLabel("<b>Proton / Compatibility Runner:</b>")
         help_proton = QLabel(
-            "<small style='color: #a6adc8;'>Select which Proton/Proton-GE runner executes "
+            "<small style='color: #7f8698;'>Select which Proton/Proton-GE runner executes "
             "Greed.exe (SVM) and Windows components.</small>"
         )
         help_proton.setWordWrap(True)
         self.combo_proton = QComboBox()
-        self.combo_proton.setStyleSheet(
-            "QComboBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; "
-            "padding: 6px; border-radius: 6px; } "
-            "QComboBox QAbstractItemView { background-color: #1e1e2e; color: #cdd6f4; "
-            "selection-background-color: #45475a; }"
-        )
 
         saved_proton = self.cfg.get("proton_runner", "auto")
         available_protons = get_available_proton_versions()
@@ -129,35 +128,37 @@ class SettingsDialog(QDialog):
         layout.addWidget(help_proton)
         layout.addWidget(self.combo_proton)
 
+        layout.addSpacing(6)
+
         btn_box = QHBoxLayout()
+        btn_box.setSpacing(8)
+
         btn_desktop = QPushButton("📌 Create Desktop Shortcut")
-        btn_desktop.setStyleSheet(
-            "QPushButton { background-color: #313244; color: #89b4fa; border: 1px solid #45475a; "
-            "font-weight: bold; padding: 6px 12px; border-radius: 6px; } "
-            "QPushButton:hover { background-color: #45475a; }"
-        )
+        btn_desktop.setProperty("role", "ghost")
+        btn_desktop.setProperty("size", "sm")
         btn_desktop.clicked.connect(self.create_desktop_shortcut)
         btn_box.addWidget(btn_desktop)
 
         btn_greed = QPushButton("🛠️ Launch Greed.exe (SVM)")
-        btn_greed.setStyleSheet(
-            "QPushButton { background-color: #313244; color: #f9e2af; border: 1px solid #45475a; "
-            "font-weight: bold; padding: 6px 12px; border-radius: 6px; } "
-            "QPushButton:hover { background-color: #45475a; }"
-        )
+        btn_greed.setProperty("role", "ghost")
+        btn_greed.setProperty("size", "sm")
         btn_greed.setToolTip(
             "Launch Greed.exe (SVM Configurator) safely inside your SPT Wine Prefix (~/Games/SPT-Prefix)."
         )
         btn_greed.clicked.connect(self.launch_greed_exe)
         btn_box.addWidget(btn_greed)
+
         btn_box.addStretch()
 
         btn_cancel = QPushButton("Cancel")
+        btn_cancel.setProperty("role", "ghost")
+        btn_cancel.setProperty("size", "sm")
         btn_cancel.clicked.connect(self.reject)
         btn_box.addWidget(btn_cancel)
 
         btn_save = QPushButton("💾 Save Settings")
-        btn_save.setStyleSheet("background-color: #a6e3a1; color: #11111b; font-weight: bold; padding: 6px 16px;")
+        btn_save.setProperty("role", "primary")
+        btn_save.setProperty("size", "sm")
         btn_save.clicked.connect(self.save_settings)
         btn_box.addWidget(btn_save)
 
@@ -171,7 +172,7 @@ class SettingsDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Desktop Shortcut Created",
-                "📌 <b>Desktop Shortcut && Application Launcher Created!</b><br><br>You can now "
+                "📌 <b>Desktop Shortcut & Application Launcher Created!</b><br><br>You can now "
                 "launch <b>SPT Stash</b> directly from your Linux Desktop or Application Menu.",
             )
         except Exception as e:
@@ -221,8 +222,8 @@ class SettingsDialog(QDialog):
                 parent = self.parent()
                 if parent and hasattr(parent, "tabs"):
                     parent.tabs.setCurrentIndex(2)
-                    if hasattr(parent, "txt_browse_search"):
-                        parent.txt_browse_search.setText("Server Value Modifier")
+                    if hasattr(parent, "browse_search"):
+                        parent.browse_search.setText("Server Value Modifier")
             return
 
         prefix_path = find_wine_prefix(spt_root)
@@ -258,13 +259,11 @@ class SettingsDialog(QDialog):
 
             subprocess.Popen(cmd, env=env, cwd=str(spt_root))
             parent = self.parent()
-            if parent and hasattr(parent, "show_toast"):
-                runner_name = selected_runner if selected_runner not in ("auto", "wine") else (proton_path.name if proton_path else "Proton")
-                parent.show_toast(
-                    f"🚀 Launching Greed.exe (SVM) [{runner_name}]...",
-                    border_color="#89b4fa",
-                    text_color="#89b4fa",
-                )
+            runner_name = selected_runner if selected_runner not in ("auto", "wine") else (proton_path.name if proton_path else "Proton")
+            if parent and hasattr(parent, "toast"):
+                parent.toast.success(f"🚀 Launching Greed.exe (SVM) [{runner_name}]...")
+            elif parent and hasattr(parent, "show_toast"):
+                parent.show_toast(f"🚀 Launching Greed.exe (SVM) [{runner_name}]...")
             else:
                 QMessageBox.information(
                     self,
@@ -327,21 +326,23 @@ class StageInstallDialog(QDialog):
         super().__init__(parent)
         self.archive_path = Path(archive_path)
         self.mod_info = mod_info
-        self.setWindowTitle(f"Stage && Install: {mod_info['title']}")
+        self.setWindowTitle(f"Stage & Install: {mod_info['title']}")
         self.resize(680, 500)
         self.setStyleSheet("""
-            QDialog { background-color: #1e1e2e; color: #cdd6f4; }
-            QLabel { color: #cdd6f4; }
-            QTreeWidget { background-color: #181825; border: 1px solid #313244; color: #cdd6f4; }
-            QHeaderView::section { background-color: #313244; color: #cdd6f4; font-weight: bold; }
-            QPushButton { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 6px 14px; border-radius: 6px; }
-            QPushButton:hover { background-color: #45475a; }
+            QDialog { background-color: #0f1016; color: #eceef3; }
+            QLabel { color: #eceef3; }
+            QTreeWidget { background-color: #14161d; border: 1px solid #232733; color: #eceef3; border-radius: 6px; }
+            QHeaderView::section { background-color: #1a1d27; color: #7f8698; font-weight: 600; padding: 6px; border: none; }
+            QPushButton { background-color: #1a1d27; border: 1px solid #232733; color: #eceef3; padding: 6px 14px; border-radius: 6px; }
+            QPushButton:hover { background-color: #232733; }
         """)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
 
         lbl_header = QLabel(
-            f"<b>Mod:</b> {mod_info['title']} <span style='color:#89b4fa;'>v{mod_info.get('version', '')}</span>"
+            f"<b>Mod:</b> {mod_info['title']} <span style='color:#7c8cff;'>v{mod_info.get('version', '')}</span>"
         )
         lbl_header.setFont(QFont("Ubuntu", 14, QFont.Bold))
         layout.addWidget(lbl_header)
@@ -357,8 +358,8 @@ class StageInstallDialog(QDialog):
                     + ", ".join(m["title"] for m in missing)
                 )
                 dep_box.setStyleSheet(
-                    "background-color: #313244; border: 1px solid #f38ba8; border-radius: 6px; "
-                    "padding: 8px; color: #f38ba8;"
+                    "background-color: #232733; border: 1px solid #f87171; border-radius: 6px; "
+                    "padding: 8px; color: #f87171;"
                 )
                 layout.addWidget(dep_box)
             else:
@@ -366,13 +367,14 @@ class StageInstallDialog(QDialog):
                     f"✅ All <b>{len(deps)} required dependency mod(s)</b> are installed and enabled in your game."
                 )
                 dep_box.setStyleSheet(
-                    "background-color: #181825; border: 1px solid #a6e3a1; border-radius: 6px; "
-                    "padding: 6px; color: #a6e3a1;"
+                    "background-color: #14161d; border: 1px solid #4ade80; border-radius: 6px; "
+                    "padding: 6px; color: #4ade80;"
                 )
                 layout.addWidget(dep_box)
 
         size_mb = self.archive_path.stat().st_size / (1024 * 1024)
         lbl_info = QLabel(f"Downloaded Archive: <b>{self.archive_path.name}</b> ({size_mb:.2f} MB)")
+        lbl_info.setStyleSheet("color: #7f8698;")
         layout.addWidget(lbl_info)
 
         layout.addWidget(QLabel("<b>Staged Package Contents:</b>"))
@@ -386,19 +388,24 @@ class StageInstallDialog(QDialog):
         self.inspect_archive()
 
         btn_layout = QHBoxLayout()
-        btn_open_folder = QPushButton("📁 Open Downloads Cache Folder")
+        btn_layout.setSpacing(8)
+
+        btn_open_folder = QPushButton("📁 Downloads Cache Folder")
+        btn_open_folder.setProperty("role", "ghost")
+        btn_open_folder.setProperty("size", "sm")
         btn_open_folder.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(DOWNLOADS_CACHE_DIR))))
         btn_layout.addWidget(btn_open_folder)
         btn_layout.addStretch()
 
         btn_cancel = QPushButton("Cancel")
+        btn_cancel.setProperty("role", "ghost")
+        btn_cancel.setProperty("size", "sm")
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
 
         btn_install = QPushButton("🚀 Install to SPT Now")
-        btn_install.setStyleSheet(
-            "background-color: #a6e3a1; color: #11111b; font-weight: bold; font-size: 13px; padding: 8px 16px;"
-        )
+        btn_install.setProperty("role", "primary")
+        btn_install.setProperty("size", "sm")
         btn_install.clicked.connect(self.accept)
         btn_layout.addWidget(btn_install)
 
@@ -431,27 +438,29 @@ class StageInstallDialog(QDialog):
 
 
 class SavePresetDialog(QDialog):
-    def __init__(self, enabled_count, parent=None):
+    def __init__(self, enabled_count, spt_version="SPT 4.1.3", parent=None):
         super().__init__(parent)
         self.setWindowTitle("Save Preset — SPT Stash")
         self.setMinimumWidth(440)
         self.setStyleSheet("""
-            QDialog { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Segoe UI', Ubuntu, sans-serif; }
-            QLabel { color: #cdd6f4; font-size: 13px; }
-            QLineEdit { background-color: #181825; border: 1px solid #45475a; border-radius: 6px; color: #cdd6f4; padding: 8px 12px; font-size: 13px; }
-            QPushButton { background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; padding: 8px 16px; border-radius: 6px; font-weight: 500; font-size: 13px; }
-            QPushButton:hover { background-color: #45475a; }
-            QPushButton#btnSave { background-color: #a6e3a1; color: #11111b; font-weight: bold; border: 1px solid #a6e3a1; }
+            QDialog { background-color: #0f1016; color: #eceef3; }
+            QLabel { color: #eceef3; font-size: 13px; }
+            QLineEdit { background-color: #14161d; border: 1px solid #232733; border-radius: 6px; color: #eceef3; padding: 8px 12px; font-size: 13px; }
+            QLineEdit:focus { border-color: #7c8cff; }
+            QPushButton { background-color: #1a1d27; border: 1px solid #232733; color: #eceef3; padding: 8px 16px; border-radius: 6px; font-weight: 500; font-size: 13px; }
+            QPushButton:hover { background-color: #232733; }
         """)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
 
         title_lbl = QLabel("🎒 Create New Stash Preset")
         title_lbl.setFont(QFont("Ubuntu", 14, QFont.Bold))
         layout.addWidget(title_lbl)
 
-        sub_lbl = QLabel(f"This will snapshot your <b>{enabled_count} currently enabled mod(s)</b>.")
-        sub_lbl.setStyleSheet("color: #a6adc8; margin-bottom: 12px;")
+        sub_lbl = QLabel(f"This will snapshot your <b>{enabled_count} currently enabled mod(s)</b> ({spt_version}).")
+        sub_lbl.setStyleSheet("color: #7f8698; margin-bottom: 8px;")
         layout.addWidget(sub_lbl)
 
         layout.addWidget(QLabel("Preset Name:"))
@@ -465,14 +474,18 @@ class SavePresetDialog(QDialog):
         layout.addWidget(self.txt_desc)
 
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
         btn_layout.addStretch()
 
         btn_cancel = QPushButton("Cancel")
+        btn_cancel.setProperty("role", "ghost")
+        btn_cancel.setProperty("size", "sm")
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
 
         btn_save = QPushButton("💾 Save Preset")
-        btn_save.setObjectName("btnSave")
+        btn_save.setProperty("role", "primary")
+        btn_save.setProperty("size", "sm")
         btn_save.clicked.connect(self.accept)
         btn_layout.addWidget(btn_save)
 

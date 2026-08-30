@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SPT Stash — main application window."""
+"""SPT Stash — main application window with V4 modern sidebar navigation."""
 
 import json
 import os
@@ -7,15 +7,17 @@ import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QIcon, QPixmap
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QTabWidget,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -25,122 +27,31 @@ from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
 from ..system.hardware import detect_installed_spt_version
 from ..system.process import is_server_running, stop_server
 from .dialogs import SettingsDialog
+from .styles import get_app_stylesheet
 from .tabs import browse as browse_tab
 from .tabs import installed as installed_tab
 from .tabs import installer as installer_tab
 from .tabs import performance as performance_tab
 from .tabs import presets as presets_tab
-from .widgets import ToastNotification
-
-
-def _indent(text, prefix):
-    return "\n".join(prefix + line if line.strip() else line for line in text.split("\n"))
+from .theme import DANGER, SUCCESS
+from .toast import ToastManager
 
 
 class SPTModManagerWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SPT Stash — Mod Manager for Single-Player Tarkov")
-        self.resize(1150, 720)
+        self.resize(1180, 760)
 
-        # Style
-        self.setStyleSheet("""
-                QMainWindow {
-                    background-color: #1e1e2e;
-                    color: #cdd6f4;
-                }
-                QWidget {
-                    background-color: #1e1e2e;
-                    color: #cdd6f4;
-                    font-family: 'Segoe UI', Ubuntu, sans-serif;
-                    font-size: 13px;
-                }
-                QGroupBox {
-                    border: 1px solid #45475a;
-                    border-radius: 8px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    font-weight: bold;
-                    color: #cba6f7;
-                }
-                QTabWidget::pane {
-                    border: 1px solid #313244;
-                    background: #181825;
-                    border-radius: 6px;
-                }
-                QTabBar::tab {
-                    background: #313244;
-                    color: #a6adc8;
-                    padding: 8px 18px;
-                    margin-right: 4px;
-                    border-top-left-radius: 6px;
-                    border-top-right-radius: 6px;
-                    font-weight: bold;
-                }
-                QTabBar::tab:selected {
-                    background: #89b4fa;
-                    color: #11111b;
-                }
-                QPushButton {
-                    background-color: #313244;
-                    border: 1px solid #45475a;
-                    color: #cdd6f4;
-                    padding: 6px 14px;
-                    border-radius: 6px;
-                    font-weight: 500;
-                }
-                QPushButton:hover {
-                    background-color: #45475a;
-                    border-color: #585b70;
-                }
-                QPushButton#btnLaunch {
-                    background-color: #27392b;
-                    color: #a6e3a1;
-                    border: 1px solid #36503c;
-                    font-weight: bold;
-                    font-size: 14px;
-                }
-                QPushButton#btnLaunch:hover {
-                    background-color: #314a38;
-                    border-color: #a6e3a1;
-                }
-                QPushButton#btnStop {
-                    background-color: #3a232e;
-                    color: #f38ba8;
-                    border: 1px solid #542f3e;
-                    font-weight: bold;
-                }
-                QPushButton#btnStop:hover {
-                    background-color: #4a2c3b;
-                    border-color: #f38ba8;
-                }
-                QLineEdit, QComboBox {
-                    background-color: #313244;
-                    border: 1px solid #45475a;
-                    color: #cdd6f4;
-                    padding: 6px;
-                    border-radius: 6px;
-                }
-                QTableWidget, QListWidget {
-                    background-color: #181825;
-                    border: 1px solid #313244;
-                    gridline-color: #313244;
-                    border-radius: 6px;
-                }
-                QHeaderView::section {
-                    background-color: #313244;
-                    color: #cdd6f4;
-                    padding: 6px;
-                    border: none;
-                    font-weight: bold;
-                }
-                QTextBrowser {
-                    background-color: #181825;
-                    border: 1px solid #313244;
-                    border-radius: 6px;
-                    color: #cdd6f4;
-                }
-            """)
+        # Set Global Theme Stylesheet
+        self.setStyleSheet(get_app_stylesheet())
+
+        # Toast notification engine
+        self.toast = ToastManager(self)
+
+        icon_path = find_app_icon()
+        if icon_path and icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self.remote_mods = []
 
@@ -155,51 +66,108 @@ class SPTModManagerWindow(QMainWindow):
     def init_ui(self):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
-        main_layout = QVBoxLayout(main_widget)
+        root_layout = QHBoxLayout(main_widget)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        # Header Bar
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(10)
+        # ── Sidebar ──────────────────────────────────────────────────────────
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(8, 16, 8, 8)
+        sidebar_layout.setSpacing(4)
 
+        # Brand row
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(6, 0, 6, 14)
+        brand_row.setSpacing(10)
         icon_path = find_app_icon()
         if icon_path and icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
             lbl_icon = QLabel()
-            pixmap = QPixmap(str(icon_path)).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            lbl_icon.setPixmap(pixmap)
-            header_layout.addWidget(lbl_icon)
+            pix = QPixmap(str(icon_path)).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            lbl_icon.setPixmap(pix)
+            brand_row.addWidget(lbl_icon)
+        lbl_name = QLabel("SPT Stash")
+        lbl_name.setObjectName("brandName")
+        brand_row.addWidget(lbl_name)
+        brand_row.addStretch()
+        sidebar_layout.addLayout(brand_row)
 
-        title_label = QLabel("SPT Stash")
-        title_label.setFont(QFont("Ubuntu", 17, QFont.Bold))
-        header_layout.addWidget(title_label)
+        # Navigation list (replaces QTabWidget)
+        self.nav_group = QButtonGroup(self)
+        self.nav_group.setExclusive(True)
+        nav_items = [
+            ("📦  Installed", "tab_installed"),
+            ("🏷️  Presets", "tab_presets"),
+            ("🔍  Browse Forge", "tab_browse"),
+            ("⬇️  Install", "tab_installer"),
+            ("⚡  Performance", "tab_performance"),
+        ]
+        self.nav_buttons = []
+        for idx, (label, _attr) in enumerate(nav_items):
+            btn = QPushButton(label)
+            btn.setProperty("nav", "true")
+            btn.setCheckable(True)
+            if idx == 0:
+                btn.setChecked(True)
+            self.nav_group.addButton(btn)
+            sidebar_layout.addWidget(btn)
+            self.nav_buttons.append(btn)
 
-        header_layout.addStretch()
+        sidebar_layout.addStretch()
 
-        self.status_badge = QLabel("Server: Unknown")
-        self.status_badge.setStyleSheet(
-            "padding: 4px 10px; border-radius: 12px; background-color: #45475a; font-weight: bold;"
-        )
-        header_layout.addWidget(self.status_badge)
+        # Server Control Panel at bottom of sidebar
+        server_panel = QFrame()
+        server_panel.setObjectName("serverPanel")
+        server_layout = QVBoxLayout(server_panel)
+        server_layout.setContentsMargins(8, 10, 8, 8)
+        server_layout.setSpacing(8)
 
-        self.btn_server_control = QPushButton("▶ Start Server")
-        self.btn_server_control.clicked.connect(self.toggle_server_control)
-        header_layout.addWidget(self.btn_server_control)
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
+        self.server_dot = QLabel("●")
+        self.server_dot.setStyleSheet(f"color: {DANGER}; font-size: 13px;")
+        status_row.addWidget(self.server_dot)
+        self.server_status_lbl = QLabel("Server: Stopped")
+        self.server_status_lbl.setObjectName("serverStatus")
+        status_row.addWidget(self.server_status_lbl)
+        status_row.addStretch()
+        server_layout.addLayout(status_row)
 
         self.btn_launch = QPushButton("▶ Launch SPT")
-        self.btn_launch.setObjectName("btnLaunch")
+        self.btn_launch.setProperty("role", "primary")
+        self.btn_launch.setProperty("size", "lg")
         self.btn_launch.clicked.connect(self.launch_spt)
-        header_layout.addWidget(self.btn_launch)
+        server_layout.addWidget(self.btn_launch)
 
-        self.btn_settings = QPushButton("⚙️ Settings")
-        self.btn_settings.clicked.connect(self.open_settings_dialog)
-        header_layout.addWidget(self.btn_settings)
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+        self.btn_server_control = QPushButton("Start")
+        self.btn_server_control.setProperty("role", "success")
+        self.btn_server_control.setProperty("size", "sm")
+        self.btn_server_control.clicked.connect(self.toggle_server_control)
+        btn_row.addWidget(self.btn_server_control, 1)
 
-        main_layout.addLayout(header_layout)
+        btn_settings = QPushButton("⚙ Settings")
+        btn_settings.setProperty("role", "ghost")
+        btn_settings.setProperty("size", "sm")
+        btn_settings.clicked.connect(self.open_settings_dialog)
+        btn_row.addWidget(btn_settings, 1)
 
-        # Tabs
-        self.tabs = QTabWidget()
-        main_layout.addWidget(self.tabs)
+        server_layout.addLayout(btn_row)
+        sidebar_layout.addWidget(server_panel)
+
+        root_layout.addWidget(sidebar)
+
+        # ── Right Side (Stacked Tab Pages) ──────────────────────────────────
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+        root_layout.addWidget(right_widget, 1)
+
+        self.tabs = QStackedWidget()
+        right_layout.addWidget(self.tabs)
 
         self.tab_installed = QWidget()
         self.tab_presets = QWidget()
@@ -207,11 +175,11 @@ class SPTModManagerWindow(QMainWindow):
         self.tab_installer = QWidget()
         self.tab_performance = QWidget()
 
-        self.tabs.addTab(self.tab_installed, "Installed Mods")
-        self.tabs.addTab(self.tab_presets, "🎒 Presets && Manifests")
-        self.tabs.addTab(self.tab_browse, "Browse sp-mod.com (Forge)")
-        self.tabs.addTab(self.tab_installer, "Install Local Mod Archive")
-        self.tabs.addTab(self.tab_performance, "⚡ Linux Performance")
+        self.tabs.addWidget(self.tab_installed)
+        self.tabs.addWidget(self.tab_presets)
+        self.tabs.addWidget(self.tab_browse)
+        self.tabs.addWidget(self.tab_installer)
+        self.tabs.addWidget(self.tab_performance)
 
         installed_tab.setup_installed_tab(self)
         presets_tab.setup_presets_tab(self)
@@ -219,7 +187,11 @@ class SPTModManagerWindow(QMainWindow):
         installer_tab.setup_installer_tab(self)
         performance_tab.setup_performance_tab(self)
 
-    # ------------------ Installed Mods Tab ------------------
+        # Wire navigation buttons to switch stacked widget
+        for idx, btn in enumerate(self.nav_buttons):
+            btn.clicked.connect(lambda _checked, i=idx: self.tabs.setCurrentIndex(i))
+
+    # ------------------ Process & Server Controls ------------------
 
     def check_server_status(self):
         running = is_server_running()
@@ -238,32 +210,32 @@ class SPTModManagerWindow(QMainWindow):
             except Exception:
                 pass
 
-            if hasattr(self, "status_badge"):
-                self.status_badge.setText(f"🟢 Server: Running ({server_ip_port})")
-                self.status_badge.setStyleSheet(
-                    "padding: 4px 10px; border-radius: 12px; background-color: #a6e3a1; color: #11111b; font-weight: bold;"
-                )
+            if hasattr(self, "server_dot"):
+                self.server_dot.setStyleSheet(f"color: {SUCCESS}; font-size: 13px;")
+            if hasattr(self, "server_status_lbl"):
+                self.server_status_lbl.setText(f"Running ({server_ip_port})")
+                self.server_status_lbl.setStyleSheet(f"color: {SUCCESS}; font-weight: 600;")
             if hasattr(self, "btn_server_control"):
-                self.btn_server_control.setText("🛑 Stop Server")
-                self.btn_server_control.setStyleSheet("background-color: #f38ba8; color: #11111b; font-weight: bold;")
+                self.btn_server_control.setText("Stop")
+                self.btn_server_control.setProperty("role", "danger")
+                self.btn_server_control.style().unpolish(self.btn_server_control)
+                self.btn_server_control.style().polish(self.btn_server_control)
         else:
-            if hasattr(self, "status_badge"):
-                self.status_badge.setText("🔴 Server: Stopped")
-                self.status_badge.setStyleSheet(
-                    "padding: 4px 10px; border-radius: 12px; background-color: #f38ba8; color: #11111b; font-weight: bold;"
-                )
+            if hasattr(self, "server_dot"):
+                self.server_dot.setStyleSheet(f"color: {DANGER}; font-size: 13px;")
+            if hasattr(self, "server_status_lbl"):
+                self.server_status_lbl.setText("Stopped")
+                self.server_status_lbl.setStyleSheet(f"color: {DANGER}; font-weight: 600;")
             if hasattr(self, "btn_server_control"):
-                self.btn_server_control.setText("▶ Start Server")
-                self.btn_server_control.setStyleSheet("background-color: #a6e3a1; color: #11111b; font-weight: bold;")
+                self.btn_server_control.setText("Start")
+                self.btn_server_control.setProperty("role", "success")
+                self.btn_server_control.style().unpolish(self.btn_server_control)
+                self.btn_server_control.style().polish(self.btn_server_control)
 
     def toggle_server_control(self):
         if is_server_running():
             stop_server()
-            self.show_toast(
-                "🛑 Stopping SPT Server...",
-                border_color="#f38ba8",
-                text_color="#f38ba8",
-            )
+            self.toast.error("🛑 Stopping SPT Server...")
             QTimer.singleShot(500, self.check_server_status)
         else:
             cfg = load_config()
@@ -294,11 +266,7 @@ class SPTModManagerWindow(QMainWindow):
                     print(f"Failed launching SPT.Server.Linux directly: {e}")
 
             if launched:
-                self.show_toast(
-                    "🚀 Starting SPT Server...",
-                    border_color="#a6e3a1",
-                    text_color="#a6e3a1",
-                )
+                self.toast.success("🚀 Starting SPT Server...")
             else:
                 self.show_missing_script_dialog("server.sh", server_script)
 
@@ -310,11 +278,7 @@ class SPTModManagerWindow(QMainWindow):
         launcher_script = Path(cfg.get("launcher_script", str(spt_root / "launcher.sh")))
         if launcher_script.exists():
             subprocess.Popen([str(launcher_script)], cwd=str(launcher_script.parent))
-            self.show_toast(
-                f"🚀 Launching SPT via {launcher_script.name}...",
-                border_color="#a6e3a1",
-                text_color="#a6e3a1",
-            )
+            self.toast.success(f"🚀 Launching SPT via {launcher_script.name}...")
         else:
             self.show_missing_script_dialog("launcher.sh", launcher_script)
 
@@ -327,31 +291,18 @@ class SPTModManagerWindow(QMainWindow):
 
             self.installed_spt_ver = detect_installed_spt_version()
             self.load_installed_mods()
-            self.show_toast(
-                "💾 Settings saved and applied!",
-                border_color="#a6e3a1",
-                text_color="#a6e3a1",
-            )
+            self.toast.success("💾 Settings saved and applied!")
 
     def show_toast(
         self,
         text,
-        duration_ms=2200,
+        duration_ms=2500,
         bg_color="#181825",
         border_color="#89b4fa",
         text_color="#cdd6f4",
     ):
-        if not hasattr(self, "_toast"):
-            self._toast = ToastNotification(self)
-        self._toast.show_message(text, duration_ms, bg_color, border_color, text_color)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if hasattr(self, "_toast") and self._toast.isVisible():
-            p_rect = self.rect()
-            x = (p_rect.width() - self._toast.width()) // 2
-            y = p_rect.height() - self._toast.height() - 36
-            self._toast.move(max(10, x), max(10, y))
+        """Compatibility wrapper for toast notifications."""
+        self.toast._show(text, border_color, duration_ms)
 
     def show_missing_script_dialog(self, script_name, script_path):
         QMessageBox.warning(
@@ -363,6 +314,8 @@ class SPTModManagerWindow(QMainWindow):
         )
 
     # installed_tab bindings
+    _set_chip_filter = installed_tab._set_chip_filter
+    _on_mod_row_checked = installed_tab._on_mod_row_checked
     load_installed_mods = installed_tab.load_installed_mods
     render_installed_mods = installed_tab.render_installed_mods
     on_fika_updated = installed_tab.on_fika_updated
@@ -380,6 +333,9 @@ class SPTModManagerWindow(QMainWindow):
     toggle_mod = installed_tab.toggle_mod
     audit_installed_dependencies = installed_tab.audit_installed_dependencies
     show_audit_issues_dialog = installed_tab.show_audit_issues_dialog
+    open_author_profile = installed_tab.open_author_profile
+    open_mod_folder = installed_tab.open_mod_folder
+    open_mod_web = installed_tab.open_mod_web
     delete_mod = installed_tab.delete_mod
 
     # presets_tab bindings
@@ -422,12 +378,17 @@ def main():
     """Application entry point."""
     import sys
 
+    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
+
+    # High-DPI scaling
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
     ensure_dirs()
     apply_spt_root(find_spt_root())
 
     app = QApplication(sys.argv)
+    app.setStyleSheet(get_app_stylesheet())
     window = SPTModManagerWindow()
     window.show()
     sys.exit(app.exec())

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SPT Stash — V4 Hybrid</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1016;
+    --surface: #14161d;
+    --surface2: #1a1d27;
+    --surface3: #212531;
+    --border: #232733;
+    --border-hover: #2e3346;
+    --text: #eceef3;
+    --text-muted: #7f8698;
+    --accent: #7c8cff;
+    --accent-dim: rgba(124,140,255,0.12);
+    --success: #4ade80;
+    --success-dim: rgba(74,222,128,0.12);
+    --danger: #f87171;
+    --danger-dim: rgba(248,113,113,0.10);
+    --warning: #fbbf24;
+    --radius: 8px;
+    --radius-lg: 10px;
+    --sidebar-w: 216px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh;
+    display: flex; overflow: hidden; font-size: 13px; line-height: 1.45;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .brand { padding: 18px 16px 16px; display: flex; align-items: center; gap: 10px; }
+  .brand-icon { width: 30px; height: 30px; border-radius: 9px; overflow: hidden; flex-shrink: 0; }
+  .brand-icon img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 0; }
+  .brand-name { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+
+  .nav { flex: 1; padding: 6px 8px; }
+  .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 12px 8px 5px; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--text-muted); cursor: pointer; font-size: 12.5px; font-weight: 500; margin-bottom: 1px; transition: all 0.12s; }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: var(--text); background: var(--surface2); }
+  .nav-item.active .nav-icon { color: var(--accent); }
+  .nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+
+  /* Server panel in sidebar footer */
+  .server-panel { padding: 12px; border-top: 1px solid var(--border); background: var(--surface); }
+  .server-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); flex-shrink: 0; }
+  .status-dot.running { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .server-actions { display: flex; flex-direction: column; gap: 6px; }
+  .server-actions .row { display: flex; gap: 6px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.12s; font-family: inherit; }
+  .btn:hover { background: var(--surface3); border-color: var(--border-hover); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #0f1016; font-weight: 700; }
+  .btn-primary:hover { filter: brightness(1.12); }
+  .btn-success { background: var(--success-dim); border-color: rgba(74,222,128,0.22); color: var(--success); }
+  .btn-success:hover { background: rgba(74,222,128,0.18); }
+  .btn-danger { background: var(--danger-dim); border-color: rgba(248,113,113,0.22); color: var(--danger); }
+  .btn-danger:hover { background: rgba(248,113,113,0.16); }
+  .btn-ghost { background: transparent; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-lg { padding: 8px 16px; font-size: 12.5px; }
+  .btn-icon { padding: 7px 8px; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .topbar { padding: 16px 22px; display: flex; align-items: center; gap: 14px; }
+  .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .topbar-sub { color: var(--text-muted); font-size: 12px; }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .toolbar { padding: 0 22px 12px; display: flex; gap: 8px; align-items: center; }
+  .search { width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px 8px 34px; color: var(--text); font-size: 12.5px; outline: none; transition: border-color 0.12s; font-family: inherit; position: relative; }
+  .search:focus { border-color: var(--accent); }
+  .search::placeholder { color: var(--text-muted); }
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+
+  .chip { padding: 7px 12px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); font-size: 11.5px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.12s; font-family: inherit; }
+  .chip:hover { color: var(--text); border-color: var(--border-hover); }
+  .chip.active { background: var(--accent-dim); border-color: rgba(124,140,255,0.3); color: var(--accent); }
+
+  /* Content list */
+  .content { flex: 1; overflow: auto; border-top: 1px solid var(--border); }
+  .mod-header { display: grid; grid-template-columns: 32px 34px 1fr 85px 105px 105px 44px; gap: 10px; padding: 10px 22px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 2; font-weight: 600; }
+  .mod-row { display: grid; grid-template-columns: 32px 34px 1fr 85px 105px 105px 44px; gap: 10px; padding: 10px 22px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; }
+  .mod-row:hover { background: var(--surface); }
+  .mod-row.disabled { opacity: 0.5; }
+  .mod-check { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  .mod-name { font-weight: 600; font-size: 12.5px; letter-spacing: -0.005em; }
+  .mod-sub { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+  .author-link { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .author-link:hover { text-decoration: underline; }
+  .mod-version { color: var(--text-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 99px; }
+  .pill-success { background: var(--success-dim); color: var(--success); }
+  .pill-muted { background: rgba(127,134,152,0.1); color: var(--text-muted); }
+  .pill-warn { background: rgba(251,191,36,0.1); color: var(--warning); }
+
+  /* Toggle switch */
+  .switch { width: 34px; height: 19px; background: var(--surface3); border-radius: 99px; position: relative; cursor: pointer; transition: background 0.18s, border-color 0.18s; border: 1px solid var(--border); flex-shrink: 0; }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; background: var(--text-muted); border-radius: 50%; transition: all 0.18s; }
+  .switch.on { background: var(--success-dim); border-color: rgba(74,222,128,0.35); }
+  .switch.on::after { left: 17px; background: var(--success); }
+  .switch:hover { border-color: var(--border-hover); }
+
+  .row-actions { display: flex; gap: 2px; justify-content: flex-end; }
+  .icon-btn { width: 26px; height: 26px; border-radius: 6px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.12s; font-family: inherit; }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+  .icon-btn.danger:hover { background: var(--danger-dim); color: var(--danger); }
+
+  /* Bulk bar */
+  .bulk-bar { padding: 10px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); font-size: 12px; color: var(--text-muted); }
+  .bulk-left { display: flex; align-items: center; gap: 14px; }
+  .bulk-actions { display: flex; gap: 6px; }
+  .link { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon"><img src="/home/jon/development/spt-stash/docs/spt_stash_icon.png" alt="SPT Stash"></div>
+    <div class="brand-name">SPT Stash</div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Installed
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      Presets
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Browse Forge
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Install
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      Performance
+    </div>
+  </nav>
+
+  <div class="server-panel">
+    <div class="server-row">
+      <span class="status-dot"></span>
+      Server: Stopped
+    </div>
+    <div class="server-actions">
+      <button class="btn btn-primary btn-lg" style="width:100%">▶ Launch SPT</button>
+      <div class="row">
+        <button class="btn btn-success btn-sm" style="flex:1">Start</button>
+        <button class="btn btn-ghost btn-icon btn-sm" title="Settings">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>Installed Mods</h1>
+      <div class="topbar-sub">67 packages · 66 enabled · 2 updates available</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-sm">Check Updates</button>
+      <button class="btn btn-sm">Audit Dependencies</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search" placeholder="Search mods...">
+    </div>
+    <button class="chip active">All</button>
+    <button class="chip">Enabled</button>
+    <button class="chip">Client</button>
+    <button class="chip">Server</button>
+    <button class="chip">Fika</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-sm btn-ghost">Export</button>
+    <button class="btn btn-sm btn-ghost">Import</button>
+    <button class="btn btn-sm btn-ghost" title="Refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+  </div>
+
+  <div class="content">
+    <div class="mod-header">
+      <div></div><div>On</div><div>Mod</div><div>Version</div><div>Type</div><div>Fika</div><div></div>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div class="bulk-bar">
+    <div class="bulk-left">
+      <span><span id="selCount">0</span> of 67 selected</span>
+      <a class="link" onclick="selAll(true)">Select all</a>
+      <a class="link" style="color:var(--text-muted)" onclick="selAll(false)">Clear</a>
+    </div>
+    <div class="bulk-actions">
+      <button class="btn btn-sm btn-success">Enable Selected</button>
+      <button class="btn btn-sm">Disable Selected</button>
+      <button class="btn btn-sm btn-danger">Delete Selected</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const mods = [
+  {name:"Adaptive Bot Culling", version:"v1.2.0", type:"Client", fika:0, author:"Hysocs", on:true},
+  {name:"Amands' Sense - Updated", version:"v3.1.0", type:"Client", fika:0, author:"DrakiaXYZ", on:true},
+  {name:"Amands's Graphics", version:"v1.8.0", type:"Client", fika:1, author:"Amands2Mello", on:true},
+  {name:"Armbands For All", version:"v1.1.0", type:"Client", fika:0, author:"acidphantasm", on:true},
+  {name:"Armor Class Icon", version:"v1.1.1", type:"Client", fika:0, author:"xvotex", on:true},
+  {name:"ASBP - Acid's Scalable BepInEx Panel", version:"v1.0.0", type:"Client", fika:1, author:"acidphantasm", on:true},
+  {name:"Auto Ranging", version:"v2.0.0", type:"Client", fika:0, author:"Vultify", on:true},
+  {name:"AutoCorpseSearch", version:"v2.0.0", type:"Client", fika:0, author:"Hysocs", on:true},
+  {name:"AutoDeposit", version:"v6.0.0", type:"Client", fika:1, author:"Tyfon", on:true},
+  {name:"BALL - Better Ammo Loading List", version:"v1.1.1", type:"Client", fika:1, author:"Katrin0522", on:true},
+  {name:"Better Keys NG", version:"v1.8.0", type:"Server", fika:1, author:"flip", on:true},
+  {name:"BigBrain", version:"v1.5.0", type:"Client", fika:0, author:"DrakiaXYZ", on:false},
+  {name:"Borkel's Realistic NVGs", version:"v2.0.1", type:"Dual", fika:1, author:"Borkel", on:true},
+  {name:"Corpse Clean Up", version:"v1.4.0", type:"Client", fika:1, author:"Hysocs", on:true},
+  {name:"Custom Raid Times", version:"v2.3.0", type:"Server", fika:0, author:"acidphantasm", on:true},
+];
+
+const list = document.getElementById('list');
+mods.forEach((m)=>{
+  const pill = m.fika===1
+    ? '<span class="pill pill-success">Compatible</span>'
+    : '<span class="pill pill-muted">Unknown</span>';
+  list.innerHTML += `
+    <div class="mod-row ${m.on?'':'disabled'}">
+      <div><input type="checkbox" class="mod-check" onchange="upd()"></div>
+      <div><div class="switch ${m.on?'on':''}" onclick="tog(this)"></div></div>
+      <div><div class="mod-name">${m.name}</div><div class="mod-sub"><span class="author-link" onclick="openAuthor('${m.author}')" title="Open ${m.author}'s profile on sp-mod.com">${m.author}</span></div></div>
+      <div class="mod-version">${m.version}</div>
+      <div class="mod-sub">${m.type}</div>
+      <div>${pill}</div>
+      <div class="row-actions">
+        <button class="icon-btn" title="Open folder">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="icon-btn" title="View on Forge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+        <button class="icon-btn danger" title="Delete">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+    </div>`;
+});
+
+function openAuthor(name){
+  // In real app: resolve_author_profile_url(mod) then QDesktopServices.openUrl
+  console.log("Open author profile:", name);
+  alert("Opens " + name + "'s profile page on sp-mod.com");
+}
+function tog(sw){
+  sw.classList.toggle('on');
+  sw.closest('.mod-row').classList.toggle('disabled');
+}
+function selAll(on){
+  document.querySelectorAll('.mod-check').forEach(c=>c.checked=on); upd();
+}
+function upd(){
+  document.getElementById('selCount').textContent = document.querySelectorAll('.mod-check:checked').length;
+}
+upd();
+</script>
+</body>
+</html>
