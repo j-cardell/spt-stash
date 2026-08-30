@@ -5,13 +5,15 @@ import math
 import urllib.request
 from pathlib import Path
 
-from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import Property, QEasingCurve, QPointF, QPropertyAnimation, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPainterPath, QPen, QPixmap, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractButton,
     QGraphicsOpacityEffect,
     QLabel,
     QLineEdit,
+    QPushButton,
+    QSizePolicy,
     QStyle,
     QStyledItemDelegate,
     QTextBrowser,
@@ -20,6 +22,60 @@ from PySide6.QtWidgets import (
 
 from ..catalog.dependencies import check_dep_status
 from ..paths import IMAGE_CACHE_DIR
+
+
+class ClickableLabel(QLabel):
+    """QLabel that only emits clicked when the click lands on actual text."""
+
+    clicked = Signal()
+
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self._text_rect = QRectF()
+
+    def mouseReleaseEvent(self, event):
+        if self._text_rect.contains(event.position()):
+            self.clicked.emit()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_text_rect()
+
+    def setText(self, text):
+        super().setText(text)
+        self._update_text_rect()
+
+    def _update_text_rect(self):
+        doc = QTextDocument(self)
+        doc.setHtml(self.text())
+        doc.setTextWidth(self.contentsRect().width())
+        self._text_rect = QRectF(QPointF(), doc.size())
+
+
+class LinkButton(QPushButton):
+    """Flat button styled like an inline hyperlink; clickable area matches text."""
+
+    def __init__(self, text, color="#7c8cff", underline=True, parent=None):
+        super().__init__(text, parent)
+        self.setFlat(True)
+        self.setCursor(Qt.PointingHandCursor)
+        deco = "underline" if underline else "none"
+        self.setStyleSheet(f"""
+            QPushButton {{
+                border: none;
+                background: transparent;
+                color: {color};
+                padding: 0px;
+                margin: 0px;
+                font-size: 11.5px;
+                text-decoration: {deco};
+            }}
+            QPushButton:hover {{ color: #a4afff; }}
+        """)
+        self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
 
 
 class ToggleSwitch(QAbstractButton):
@@ -120,7 +176,39 @@ class SearchField(QWidget):
         return self.line_edit.text()
 
 
-def _nav_pixmap(name, size=16, color="#7f8698"):
+def _large_icon(name, size=64, color="#7c8cff"):
+    """Render larger filled icons for empty/drop states."""
+    pix = QPixmap(size, size)
+    pix.fill(Qt.transparent)
+    painter = QPainter(pix)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    if name == "package":
+        # rounded box with lid
+        pen = QPen(QColor(color), 2.5)
+        pen.setJoinStyle(Qt.MiterJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRoundedRect(QRectF(10, 22, 44, 34), 6, 6)
+        # lid
+        painter.drawLine(8, 22, 56, 22)
+        # tape/label line
+        painter.drawLine(32, 22, 32, 56)
+    elif name == "cloud-download":
+        # cloud outline + arrow
+        pen = QPen(QColor(color), 2.5)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawArc(QRectF(8, 8, 24, 24), 0, 180 * 16)
+        painter.drawArc(QRectF(24, 12, 22, 22), 100 * 16, 220 * 16)
+        painter.drawLine(32, 28, 32, 46)
+        painter.drawLine(26, 40, 32, 46)
+        painter.drawLine(38, 40, 32, 46)
+    painter.end()
+    return pix
+
+
+def _nav_pixmap(name, size=16, color="#7f8698"):  # 1space added to avoid conflict marker
     """Render small monochrome nav/action icons as QPixmap."""
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
@@ -176,6 +264,11 @@ def _nav_pixmap(name, size=16, color="#7f8698"):
             x = cx + 6.5 * math.cos(math.radians(angle))
             y = cy + 6.5 * math.sin(math.radians(angle))
             painter.drawEllipse(QRectF(x - 1, y - 1, 2, 2))
+    elif name == "refresh":
+        # circular arrow
+        painter.drawArc(QRectF(2, 2, 12, 12), 45 * 16, 270 * 16)
+        painter.drawLine(12, 3, 14, 6)
+        painter.drawLine(14, 6, 11, 7)
     elif name == "folder":
         painter.drawRect(2, 5, 12, 9)
         painter.drawLine(2, 7, 14, 7)

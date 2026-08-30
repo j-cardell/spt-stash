@@ -194,8 +194,18 @@ class SPTModManagerWindow(QMainWindow):
         self.tabs.addWidget(self.tab_performance)
 
         installed_tab.setup_installed_tab(self)
+        # Bind installed-tab helpers into MainWindow namespace before cell widgets wire their signals
+        self.show_installed_mod_detail = installed_tab.show_installed_mod_detail.__get__(self, type(self))
+        self.on_installed_table_cell_clicked = getattr(
+            installed_tab, "on_installed_table_cell_clicked", lambda r, c: None
+        ).__get__(self, type(self))
         presets_tab.setup_presets_tab(self)
         browse_tab.setup_browse_tab(self)
+        # Bind installer helpers into MainWindow namespace before setup wires buttons
+        self.start_local_install = installer_tab.start_local_install.__get__(self, type(self))
+        self.clear_local_install = installer_tab.clear_local_install.__get__(self, type(self))
+        self.set_install_archive = installer_tab.set_install_archive.__get__(self, type(self))
+        self._on_install_drop = installer_tab._on_install_drop.__get__(self, type(self))
         installer_tab.setup_installer_tab(self)
         performance_tab.setup_performance_tab(self)
 
@@ -331,7 +341,9 @@ class SPTModManagerWindow(QMainWindow):
     load_installed_mods = installed_tab.load_installed_mods
     render_installed_mods = installed_tab.render_installed_mods
     on_fika_updated = installed_tab.on_fika_updated
-    on_installed_table_cell_clicked = installed_tab.on_installed_table_cell_clicked
+    _render_installed_detail_html = installed_tab._render_installed_detail_html
+    _on_full_description_fetched = installed_tab._on_full_description_fetched
+
     show_installed_table_context_menu = installed_tab.show_installed_table_context_menu
     check_installed_mod_updates = installed_tab.check_installed_mod_updates
     update_bulk_actions_bar = installed_tab.update_bulk_actions_bar

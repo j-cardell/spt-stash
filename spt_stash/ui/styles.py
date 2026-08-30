@@ -44,6 +44,7 @@ QLabel#brandName {{
     font-size: 15px;
     color: {TEXT};
     letter-spacing: -0.01em;
+    background: transparent;
 }}
 
 /* ── Navigation buttons ─────────────────────────────────────────────────── */
@@ -302,7 +303,7 @@ QTextBrowser {{
 
 /* ── Bulk / status bar ─────────────────────────────────────────────────── */
 QFrame#bulkBar {{
-    background: {SURFACE};
+    background: transparent;
     border-top: 1px solid {BORDER};
 }}
 QLabel#bulkCount {{

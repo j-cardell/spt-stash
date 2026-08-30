@@ -83,29 +83,33 @@ def setup_performance_tab(self):
 
     def _create_perf_card(title_text, desc_text, switch_widget, extra_widget=None):
         card = QFrame()
+        card.setObjectName("perfCard")
         card.setStyleSheet("""
-            QFrame {
+            QFrame#perfCard {
                 background-color: #14161d;
                 border: 1px solid #232733;
-                border-radius: 8px;
-                padding: 12px 14px;
+                border-radius: 10px;
+            }
+            QFrame#perfCard QLabel {
+                background: transparent;
+                border: none;
             }
         """)
         c_layout = QVBoxLayout(card)
-        c_layout.setContentsMargins(12, 12, 12, 12)
-        c_layout.setSpacing(6)
+        c_layout.setContentsMargins(16, 14, 16, 14)
+        c_layout.setSpacing(10)
 
         head_row = QHBoxLayout()
         head_row.setSpacing(10)
         lbl_h = QLabel(title_text)
-        lbl_h.setStyleSheet("font-weight: 700; font-size: 13px; color: #eceef3; background: transparent;")
+        lbl_h.setStyleSheet("font-weight: 700; font-size: 13px; color: #eceef3;")
         head_row.addWidget(lbl_h)
         head_row.addStretch()
         head_row.addWidget(switch_widget)
         c_layout.addLayout(head_row)
 
         lbl_d = QLabel(desc_text)
-        lbl_d.setStyleSheet("color: #7f8698; font-size: 11.5px; line-height: 1.4; background: transparent;")
+        lbl_d.setStyleSheet("color: #7f8698; font-size: 11.5px; line-height: 1.4;")
         lbl_d.setWordWrap(True)
         c_layout.addWidget(lbl_d)
 
@@ -153,26 +157,28 @@ def setup_performance_tab(self):
     cpu_extra = QWidget()
     cpu_extra.setStyleSheet("background: transparent;")
     cpu_extra_lay = QVBoxLayout(cpu_extra)
-    cpu_extra_lay.setContentsMargins(0, 4, 0, 0)
-    cpu_extra_lay.setSpacing(6)
+    cpu_extra_lay.setContentsMargins(0, 0, 0, 0)
+    cpu_extra_lay.setSpacing(8)
 
     cores_box = QHBoxLayout()
     cores_box.setSpacing(8)
     lbl_srv = QLabel("Server:")
-    lbl_srv.setStyleSheet("color: #eceef3; font-size: 11.5px; font-weight: 600;")
+    lbl_srv.setStyleSheet("color: #7f8698; font-size: 11.5px; font-weight: 600;")
     cores_box.addWidget(lbl_srv)
     self.txt_server_cores = QLineEdit(cfg.get("server_cpu_cores", cpu_info["server_cores"]))
-    self.txt_server_cores.setFixedWidth(75)
+    self.txt_server_cores.setFixedWidth(70)
+    self.txt_server_cores.setStyleSheet("padding: 4px 6px; font-size: 11.5px;")
     cores_box.addWidget(self.txt_server_cores)
 
     lbl_cli = QLabel("Client:")
-    lbl_cli.setStyleSheet("color: #eceef3; font-size: 11.5px; font-weight: 600;")
+    lbl_cli.setStyleSheet("color: #7f8698; font-size: 11.5px; font-weight: 600;")
     cores_box.addWidget(lbl_cli)
     self.txt_client_cores = QLineEdit(cfg.get("client_cpu_cores", cpu_info["client_cores"]))
-    self.txt_client_cores.setFixedWidth(75)
+    self.txt_client_cores.setFixedWidth(70)
+    self.txt_client_cores.setStyleSheet("padding: 4px 6px; font-size: 11.5px;")
     cores_box.addWidget(self.txt_client_cores)
 
-    btn_auto_cpu = QPushButton("Auto-Detect")
+    btn_auto_cpu = QPushButton("Auto")
     btn_auto_cpu.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#7f8698")))
     btn_auto_cpu.setIconSize(QSize(14, 14))
     btn_auto_cpu.setProperty("role", "ghost")

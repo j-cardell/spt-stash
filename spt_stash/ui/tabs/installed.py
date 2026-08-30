@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -29,12 +30,21 @@ from PySide6.QtWidgets import (
 
 from ...catalog.dependencies import fetch_mod_dependencies_sync
 from ...catalog.matching import find_best_catalog_match_global, resolve_author_profile_url
+from ...catalog.workers import ModDetailFetcherThread
 from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR, STAGED_CLIENT, STAGED_SERVER
 from ...staging.links import create_relative_symlink, purge_mod_files_and_symlinks
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
 from ...version import is_version_newer
-from ..widgets import CheckBox, SearchField, ToggleSwitch, _nav_pixmap
+from ..widgets import (
+    CheckBox,
+    ClickableLabel,
+    LinkButton,
+    RemoteImageTextBrowser,
+    SearchField,
+    ToggleSwitch,
+    _nav_pixmap,
+)
 
 
 def setup_installed_tab(self):
@@ -133,7 +143,9 @@ def setup_installed_tab(self):
     btn_import.clicked.connect(lambda: self.import_stash_manifest())
     toolbar.addWidget(btn_import)
 
-    btn_refresh = QPushButton("↻")
+    btn_refresh = QPushButton("Refresh")
+    btn_refresh.setIcon(QIcon(_nav_pixmap("refresh", size=14, color="#7f8698")))
+    btn_refresh.setIconSize(QSize(14, 14))
     btn_refresh.setProperty("size", "sm")
     btn_refresh.setProperty("role", "ghost")
     btn_refresh.setToolTip("Refresh installed mods")
@@ -149,11 +161,13 @@ def setup_installed_tab(self):
     self.table_mods.setHorizontalHeaderLabels(["", "ON", "MOD", "VERSION", "TYPE", "FIKA", ""])
     self.table_mods.verticalHeader().setVisible(False)
     self.table_mods.setShowGrid(False)
+    self.table_mods.verticalHeader().setDefaultSectionSize(46)
+    self.table_mods.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
     self.table_mods.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
     self.table_mods.setColumnWidth(0, 34)
     self.table_mods.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
-    self.table_mods.setColumnWidth(1, 48)
+    self.table_mods.setColumnWidth(1, 58)
     self.table_mods.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
     self.table_mods.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
     self.table_mods.setColumnWidth(3, 80)
@@ -167,7 +181,39 @@ def setup_installed_tab(self):
     self.table_mods.setSelectionMode(QAbstractItemView.NoSelection)
     self.table_mods.setContextMenuPolicy(Qt.CustomContextMenu)
     self.table_mods.customContextMenuRequested.connect(lambda pos: self.show_installed_table_context_menu(pos))
+    self.table_mods.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    self.table_mods.verticalHeader().setDefaultSectionSize(46)
+    self.table_mods.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
     layout.addWidget(self.table_mods)
+    layout.setStretchFactor(self.table_mods, 1)
+
+    # Floating detail popup (shown when a mod name is clicked)
+    self._installed_detail_popup = QFrame(self.tab_installed)
+    self._installed_detail_popup.setObjectName("modDetailPopup")
+    self._installed_detail_popup.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
+    self._installed_detail_popup.setStyleSheet("""
+        QFrame#modDetailPopup {
+            background-color: #14161d;
+            border: 1px solid #232733;
+            border-radius: 12px;
+        }
+        QFrame#modDetailPopup QLabel {
+            background: transparent;
+            border: none;
+        }
+    """)
+    self._installed_detail_popup.setFixedSize(420, 520)
+    popup_layout = QVBoxLayout(self._installed_detail_popup)
+    popup_layout.setContentsMargins(12, 12, 12, 12)
+    popup_layout.setSpacing(0)
+
+    self.installed_detail = RemoteImageTextBrowser(self._installed_detail_popup)
+    self.installed_detail.setOpenExternalLinks(True)
+    self.installed_detail.setStyleSheet(
+        "background-color: transparent; border: none; color: #eceef3; padding: 0px;"
+    )
+    popup_layout.addWidget(self.installed_detail)
 
     #  Bulk Actions Bar
     bulk_bar = QFrame()
@@ -301,7 +347,7 @@ def load_installed_mods(self):
         s_on = any(p[2] for p in m["server_items"]) if m["has_server"] else False
 
         if m["has_client"] and m["has_server"]:
-            m_type = "Dual"
+            m_type = "Client/Server"
             disabled = not (c_on or s_on)
         elif m["has_client"]:
             m_type = "Client"
@@ -390,27 +436,22 @@ def render_installed_mods(self, mods):
         name_layout.setContentsMargins(4, 4, 4, 4)
         name_layout.setSpacing(1)
 
-        lbl_name = QLabel(mod["name"])
+        lbl_name = ClickableLabel(mod["name"])
         if mod["disabled"]:
             lbl_name.setStyleSheet("font-weight: 600; font-size: 13px; color: #9aa0b0;")
         else:
             lbl_name.setStyleSheet("font-weight: 600; font-size: 13px; color: #eceef3;")
+        lbl_name.clicked.connect(lambda _m=mod: self.show_installed_mod_detail(_m))
         name_layout.addWidget(lbl_name)
 
         if author_str and author_str != "Community":
-            lbl_author = QLabel()
             if mod["disabled"]:
-                lbl_author.setText(f"<span style='color:#7f8698;font-size:11.5px;'>by </span><span style='color:#7f8698;font-size:11.5px;'>{html.escape(author_str)}</span>")
+                lbl_author = LinkButton(f"by {author_str}", color="#7f8698", underline=False)
             else:
-                lbl_author.setText(f"<span style='color:#7f8698;font-size:11.5px;'>by </span><span style='color:#7c8cff;font-size:11.5px;cursor:pointer;'>{html.escape(author_str)}</span>")
-            lbl_author.setTextFormat(Qt.RichText)
-            lbl_author.setTextInteractionFlags(Qt.TextBrowserInteraction)
-            lbl_author.setOpenExternalLinks(False)
-            lbl_author.setCursor(QCursor(Qt.PointingHandCursor))
+                lbl_author = LinkButton(f"by {author_str}", color="#7c8cff", underline=True)
             lbl_author.setToolTip(f"Open {author_str}'s profile on sp-mod.com")
-            lbl_author.linkActivated.connect(lambda _url, m=mod: self.open_author_profile(m))
+            lbl_author.clicked.connect(lambda _m=mod: self.open_author_profile(_m))
             name_layout.addWidget(lbl_author)
-
         name_layout.addStretch()
 
         hidden_item = QTableWidgetItem(mod["name"])
@@ -700,8 +741,141 @@ def on_fika_updated(self, mod_name, fika_status):
                     lbl.style().polish(lbl)
 
 
-def on_installed_table_cell_clicked(self, row, col):
-    pass
+def _render_installed_detail_html(self, mod, matched, desc_html):
+    meta = load_mod_meta(mod.get("staged_path")) or {}
+    author = meta.get("author") or "Community"
+    if matched:
+        if not author or author == "Community":
+            author = matched.get("creator") or author
+
+    ver = meta.get("version") or (matched.get("version") if matched else "1.0.0")
+    ver = ver or "1.0.0"
+    spt_ver = meta.get("spt_version") or (matched.get("spt_version") if matched else "")
+    cat = matched.get("category", "Other") if matched else "Other"
+
+    disabled = mod.get("disabled", False)
+    status_text = "Disabled" if disabled else "Enabled"
+    status_color = "#f87171" if disabled else "#4ade80"
+
+    mod_type = "Client/Server"
+    if mod.get("has_client") and not mod.get("has_server"):
+        mod_type = "Client"
+    elif mod.get("has_server") and not mod.get("has_client"):
+        mod_type = "Server"
+
+    fika = meta.get("fika_status", "Unknown")
+    if "Compatible" in fika:
+        fika_color = "#4ade80"
+    elif "Incompatible" in fika:
+        fika_color = "#f87171"
+    else:
+        fika_color = "#fbbf24"
+
+    img_url = matched.get("image_url", "") if matched else ""
+    web_url = resolve_author_profile_url({"name": mod["name"], "author": author}) if author != "Community" else ""
+    mod_link = matched.get("link", "") if matched else ""
+
+    image_html = (
+        f"<div style=\"text-align:center; margin-bottom:14px;\">"
+        f"<img src=\"{html.escape(img_url)}\" style=\"max-width:100%; max-height:180px; border-radius:8px; border:1px solid #232733;\" />"
+        f"</div>"
+        if img_url else ""
+    )
+
+    open_page_html = (
+        f"<a href=\"{html.escape(mod_link)}\" style=\"display:inline-block; background-color:rgba(124,140,255,0.10); border:1px solid rgba(124,140,255,0.25); border-radius:6px; padding:6px 12px; color:#7c8cff; text-decoration:none; font-weight:600; font-size:12px; margin-bottom:14px;\">Open Page</a>"
+        if mod_link else ""
+    )
+
+    spt_row = f"<tr><td style=\"color:#7f8698;\"><b>SPT Version:</b></td><td>{html.escape(spt_ver)}</td></tr>" if spt_ver else ""
+    author_link = f"| <a href=\"{html.escape(web_url)}\" style=\"color:#7c8cff;\">Author profile</a>" if web_url else ""
+
+    return f"""<div style=\"color:#eceef3; font-size:13px; line-height:1.5;\">
+        <h2 style=\"margin:0 0 6px 0; font-size:17px;\">{html.escape(mod['name'])} <span style=\"color:#7c8cff;\">v{html.escape(ver)}</span></h2>
+        <p style=\"color:#7f8698; margin:0 0 10px 0;\">by <span style=\"color:#7c8cff;\">{html.escape(author)}</span> {author_link}</p>
+        {open_page_html}
+        {image_html}
+        <div style=\"background-color:#0f1016; border:1px solid #1a1d27; border-radius:8px; padding:10px; margin:12px 0 12px 0;\">
+            <table style=\"width:100%; font-size:12px; color:#eceef3; border-collapse:collapse;\">
+                <tr><td style=\"color:#7f8698; width:100px;\"><b>Status:</b></td><td><span style=\"color:{status_color}; font-weight:600;\">{status_text}</span></td></tr>
+                <tr><td style=\"color:#7f8698;\"><b>Type:</b></td><td>{html.escape(mod_type)}</td></tr>
+                <tr><td style=\"color:#7f8698;\"><b>Category:</b></td><td>{html.escape(cat)}</td></tr>
+                {spt_row}
+                <tr><td style=\"color:#7f8698;\"><b>Fika:</b></td><td><span style=\"color:{fika_color}; font-weight:600;\">{html.escape(fika)}</span></td></tr>
+            </table>
+        </div>
+        {desc_html}
+    </div>"""
+
+
+def _on_full_description_fetched(self, mod_name, full_desc):
+    if not self._installed_detail_popup or not self._installed_detail_popup.isVisible():
+        return
+    current = getattr(self, "current_selected_installed_mod", None)
+    if not current or current.get("name") != mod_name:
+        return
+    matched = find_best_catalog_match_global(mod_name)
+    body = f"<p>{html.escape(full_desc)}</p>" if full_desc else ""
+    self.installed_detail.setHtml(self._render_installed_detail_html(current, matched, body))
+
+
+def show_installed_mod_detail(self, mod):
+    matched = find_best_catalog_match_global(mod["name"])
+    desc_html = matched.get("description", "") if matched else ""
+
+    # Strip the cached catalog wrapper (image, title, author, hr) and leave only the body excerpt.
+    desc_html = re.sub(r'<img[^>]*>', '', desc_html, flags=re.IGNORECASE)
+    desc_html = re.sub(r"<div[^>]*margin-bottom:\s*12px[^>]*>[\\s\\S]*?</div>", '', desc_html, count=1, flags=re.IGNORECASE)
+    desc_html = re.sub(r'<div[^>]*>\s*</div>', '', desc_html, flags=re.IGNORECASE)
+    desc_html = re.split(r'<hr\s*/?>', desc_html, maxsplit=1, flags=re.IGNORECASE)[-1]
+    desc_html = re.sub(r'<p[^>]*>\s*<a[^>]*href=[^>]*sp-mod\.com[^>]*>.*?</a>\s*</p>', '', desc_html, count=1, flags=re.IGNORECASE | re.DOTALL)
+    desc_html = desc_html.strip()
+
+    mod_link = matched.get("link", "") if matched else ""
+    if desc_html.rstrip().endswith('...') and mod_link:
+        desc_html += f"<p style=\"color:#7f8698; margin-top:10px;\">Full description available on <a href=\"{html.escape(mod_link)}\" style=\"color:#7c8cff;\">sp-mod.com</a>.</p>"
+
+    body_html = f"<p>{html.escape(desc_html)}</p>" if desc_html else ""
+
+    if not self._installed_detail_popup:
+        self._installed_detail_popup = QFrame(self.tab_installed)
+        self._installed_detail_popup.setObjectName("modDetailPopup")
+        self._installed_detail_popup.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
+        self._installed_detail_popup.setStyleSheet("""
+            QFrame#modDetailPopup {
+                background-color: #14161d;
+                border: 1px solid #232733;
+                border-radius: 12px;
+            }
+            QFrame#modDetailPopup QLabel {
+                background: transparent;
+                border: none;
+            }
+        """)
+        self._installed_detail_popup.setFixedSize(420, 520)
+        popup_layout = QVBoxLayout(self._installed_detail_popup)
+        popup_layout.setContentsMargins(12, 12, 12, 12)
+        popup_layout.setSpacing(0)
+
+        self.installed_detail = RemoteImageTextBrowser(self._installed_detail_popup)
+        self.installed_detail.setOpenExternalLinks(True)
+        self.installed_detail.setStyleSheet("background-color: transparent; border: none; color: #eceef3; padding: 0px;")
+        popup_layout.addWidget(self.installed_detail)
+
+    self.installed_detail.setHtml(self._render_installed_detail_html(mod, matched, body_html))
+
+    cursor_pos = QCursor.pos()
+    self._installed_detail_popup.move(cursor_pos.x() + 16, cursor_pos.y() + 12)
+    self._installed_detail_popup.show()
+    self._installed_detail_popup.raise_()
+    self._installed_detail_popup.activateWindow()
+
+    self.current_selected_installed_mod = mod
+
+    fetcher = ModDetailFetcherThread(mod["name"], parent=self)
+    fetcher.fetched.connect(self._on_full_description_fetched)
+    fetcher.start()
+
 
 
 def show_installed_table_context_menu(self, pos):
@@ -741,7 +915,7 @@ def show_installed_table_context_menu(self, pos):
     menu.addSeparator()
 
     is_disabled = mod.get("disabled", False)
-    act_toggle = menu.addAction(" Enable Mod" if is_disabled else "⏸ Disable Mod")
+    act_toggle = menu.addAction(" Enable Mod" if is_disabled else " Disable Mod")
     act_check_upd = menu.addAction(" Check for Updates")
     menu.addSeparator()
 
@@ -935,7 +1109,7 @@ def toggle_mod(self, mod):
                         shutil.rmtree(live_link)
 
             if hasattr(self, "toast"):
-                self.toast.info(f"⏸ Disabled {mod['name']}")
+                self.toast.info(f"Disabled {mod['name']}")
 
         self.load_installed_mods()
     except Exception as e:

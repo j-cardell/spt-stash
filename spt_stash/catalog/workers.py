@@ -148,3 +148,52 @@ class DependencyFetcherThread(QThread):
     def run(self):
         deps = fetch_mod_dependencies_sync(self.mod_info)
         self.fetched.emit(self.mod_info, deps)
+
+
+class ModDetailFetcherThread(QThread):
+    """Fetch and cache the full mod description from its sp-mod.com detail page."""
+
+    fetched = Signal(str, str)  # mod_name, full_description_text
+    error = Signal(str)
+
+    def __init__(self, mod_name, parent=None):
+        super().__init__(parent)
+        self.mod_name = mod_name
+
+    def run(self):
+        try:
+            from .matching import find_best_catalog_match_global
+
+            matched = find_best_catalog_match_global(self.mod_name)
+            if not matched or not matched.get("link"):
+                self.fetched.emit(self.mod_name, "")
+                return
+
+            slug = matched["link"].rstrip("/").split("/")[-1]
+            detail_dir = paths.CACHE_DIR / "mod_details"
+            detail_dir.mkdir(parents=True, exist_ok=True)
+            cache_file = detail_dir / f"{slug}.json"
+
+            if cache_file.exists():
+                data = json.loads(cache_file.read_text())
+                self.fetched.emit(self.mod_name, data.get("description", ""))
+                return
+
+            req = urllib.request.Request(
+                matched["link"], headers={"User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                page = resp.read().decode("utf-8")
+
+            m = re.search(
+                r'<meta\s+name="description"\s+content="([^"]+)"', page, re.IGNORECASE
+            )
+            full = html.unescape(m.group(1)) if m else ""
+            full = re.sub(r"^The details for .*? on The Forge\.\s*", "", full)
+
+            cache_file.write_text(
+                json.dumps({"description": full, "link": matched["link"]}, indent=2)
+            )
+            self.fetched.emit(self.mod_name, full)
+        except Exception as e:
+            self.error.emit(str(e))

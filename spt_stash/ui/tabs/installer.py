@@ -3,11 +3,11 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
 )
 
 from ...staging.workers import ModInstallerThread
-from ..widgets import _nav_pixmap
 
 
 def setup_installer_tab(self):
@@ -23,63 +22,178 @@ def setup_installer_tab(self):
     layout.setContentsMargins(20, 16, 20, 16)
     layout.setSpacing(14)
 
-    lbl_title = QLabel("Install Local Mod Archive")
+    lbl_title = QLabel("Install Mod Archive")
     lbl_title.setStyleSheet("font-size: 18px; font-weight: 700; letter-spacing: -0.02em;")
     layout.addWidget(lbl_title)
 
-    dropzone = QFrame()
-    dropzone.setStyleSheet("""
-        QFrame {
+    lbl_subtitle = QLabel("Drop a .zip or .7z from sp-mod.com or your own collection")
+    lbl_subtitle.setStyleSheet("color: #7f8698; font-size: 12px; margin-bottom: 4px;")
+    layout.addWidget(lbl_subtitle)
+
+    # Single dashed drop zone
+    self.dropzone = QFrame()
+    self.dropzone.setObjectName("dropZone")
+    self.dropzone.setAcceptDrops(True)
+    self.dropzone.setStyleSheet("""
+        QFrame#dropZone {
             background-color: #14161d;
-            border: 2px dashed #232733;
+            border: 2px dashed #2e3346;
             border-radius: 12px;
             padding: 40px 24px;
         }
-        QFrame:hover {
+        QFrame#dropZone:hover {
             border-color: #7c8cff;
             background-color: #1a1d27;
         }
     """)
-    d_layout = QVBoxLayout(dropzone)
-    d_layout.setAlignment(Qt.AlignCenter)
-    d_layout.setSpacing(12)
+    dz_layout = QVBoxLayout(self.dropzone)
+    dz_layout.setAlignment(Qt.AlignCenter)
+    dz_layout.setSpacing(8)
+    dz_layout.setContentsMargins(24, 24, 24, 24)
 
-    icon_lbl = QLabel()
-    icon_lbl.setPixmap(_nav_pixmap("install", size=48, color="#7c8cff"))
-    icon_lbl.setStyleSheet("background: transparent;")
-    icon_lbl.setAlignment(Qt.AlignCenter)
-    d_layout.addWidget(icon_lbl)
+    dz_title = QLabel("Drop a mod archive here")
+    dz_title.setStyleSheet("font-size: 15px; font-weight: 700; color: #eceef3; background: transparent; border: none;")
+    dz_title.setAlignment(Qt.AlignCenter)
+    dz_layout.addWidget(dz_title)
 
-    title_lbl = QLabel("Select a Mod Archive (.zip or .7z)")
-    title_lbl.setStyleSheet("font-size: 16px; font-weight: 700; color: #eceef3; background: transparent;")
-    title_lbl.setAlignment(Qt.AlignCenter)
-    d_layout.addWidget(title_lbl)
+    dz_sub = QLabel(".zip / .7z / folders are auto-detected as Client, Server, or Dual mods")
+    dz_sub.setStyleSheet("color: #7f8698; font-size: 12px; background: transparent; border: none;")
+    dz_sub.setAlignment(Qt.AlignCenter)
+    dz_layout.addWidget(dz_sub)
 
-    info_lbl = QLabel(
-        "SPT Stash automatically normalizes Windows folder structures, extracts root DLLs and executables,\n"
-        "and places Client (BepInEx/plugins) and Server (user/mods) components into your Stash."
-    )
-    info_lbl.setStyleSheet("color: #7f8698; font-size: 12.5px; line-height: 1.4; background: transparent;")
-    info_lbl.setAlignment(Qt.AlignCenter)
-    info_lbl.setWordWrap(True)
-    d_layout.addWidget(info_lbl)
+    layout.addWidget(self.dropzone)
 
-    btn_select_file = QPushButton("Choose File...")
-    btn_select_file.setIcon(QIcon(_nav_pixmap("folder", size=14, color="#0f1016")))
-    btn_select_file.setIconSize(QSize(14, 14))
-    btn_select_file.setProperty("role", "primary")
-    btn_select_file.setProperty("size", "lg")
-    btn_select_file.setFixedWidth(200)
-    btn_select_file.clicked.connect(self.open_file_installer)
-    d_layout.addWidget(btn_select_file, alignment=Qt.AlignCenter)
+    # Staged file card (hidden until file chosen)
+    self.install_file_card = QFrame()
+    self.install_file_card.setStyleSheet("""
+        QFrame {
+            background-color: #14161d;
+            border: 1px solid #232733;
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+    """)
+    card_layout = QHBoxLayout(self.install_file_card)
+    card_layout.setContentsMargins(12, 8, 12, 8)
+    card_layout.setSpacing(12)
 
-    layout.addWidget(dropzone)
+    self.lbl_install_file = QLabel("No archive selected")
+    self.lbl_install_file.setStyleSheet("color: #eceef3; font-size: 13px;")
+    card_layout.addWidget(self.lbl_install_file)
+    card_layout.addStretch()
 
-    self.lbl_install_status = QLabel("")
-    self.lbl_install_status.setStyleSheet("font-size: 13px; font-weight: 600; color: #4ade80;")
-    self.lbl_install_status.setAlignment(Qt.AlignCenter)
-    layout.addWidget(self.lbl_install_status)
+    self.lbl_install_type = QLabel("")
+    self.lbl_install_type.setStyleSheet("color: #7c8cff; font-size: 12px;")
+    card_layout.addWidget(self.lbl_install_type)
+
+    self.btn_install_archive = QPushButton("Install")
+    self.btn_install_archive.setProperty("role", "success")
+    self.btn_install_archive.setProperty("size", "sm")
+    self.btn_install_archive.setEnabled(False)
+    self.btn_install_archive.clicked.connect(self.start_local_install)
+    card_layout.addWidget(self.btn_install_archive)
+
+    self.btn_remove_archive = QPushButton("Remove")
+    self.btn_remove_archive.setProperty("role", "ghost")
+    self.btn_remove_archive.setProperty("size", "sm")
+    self.btn_remove_archive.setEnabled(False)
+    self.btn_remove_archive.clicked.connect(self.clear_local_install)
+    card_layout.addWidget(self.btn_remove_archive)
+
+    self.install_file_card.setVisible(False)
+    layout.addWidget(self.install_file_card)
+
+    # Info cards grid
+    info_grid = QHBoxLayout()
+    info_grid.setSpacing(12)
+
+    def _info_card(title, body):
+        card = QFrame()
+        card.setStyleSheet("""
+            QFrame {
+                background-color: #14161d;
+                border: 1px solid #232733;
+                border-radius: 10px;
+            }
+            QLabel {
+                background: transparent;
+                border: none;
+                color: #eceef3;
+            }
+        """)
+        c_layout = QVBoxLayout(card)
+        c_layout.setContentsMargins(16, 14, 16, 14)
+        c_layout.setSpacing(8)
+        tl = QLabel(title)
+        tl.setStyleSheet("color: #7f8698; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;")
+        c_layout.addWidget(tl)
+        bl = QLabel(body)
+        bl.setStyleSheet("color: #eceef3; font-size: 12px; line-height: 1.4;")
+        bl.setWordWrap(True)
+        c_layout.addWidget(bl)
+        return card
+
+    info_grid.addWidget(_info_card(
+        "CLIENT MODS",
+        "Detected by BepInEx plugins folder. Staged to .staged/client/"
+    ))
+    info_grid.addWidget(_info_card(
+        "SERVER MODS",
+        "Detected by user/mods folder. Staged to .staged/server/"
+    ))
+    info_grid.addWidget(_info_card(
+        "DEPENDENCIES",
+        "Missing dependencies are auto-fetched from the Forge catalog after install."
+    ))
+    layout.addLayout(info_grid)
+
     layout.addStretch()
+
+    # Drag/drop handlers
+    self.dropzone.dragEnterEvent = lambda e: e.acceptProposedAction() if e.mimeData().hasUrls() else e.ignore()
+    self.dropzone.dropEvent = self._on_install_drop
+
+
+def _on_install_drop(self, event):
+    urls = event.mimeData().urls()
+    if urls:
+        self.set_install_archive(Path(urls[0].toLocalFile()))
+
+
+def set_install_archive(self, path: Path):
+    if not path or not path.exists():
+        return
+    suffix = path.suffix.lower()
+    if suffix not in (".zip", ".7z"):
+        QMessageBox.warning(self, "Unsupported File", "Only .zip or .7z archives are supported.")
+        return
+    self.pending_archive_path = path
+    self.lbl_install_file.setText(path.name)
+    size_mb = path.stat().st_size / (1024 * 1024)
+    self.lbl_install_type.setText(f"{size_mb:.1f} MB")
+    self.btn_install_archive.setEnabled(True)
+    self.btn_remove_archive.setEnabled(True)
+    self.install_file_card.setVisible(True)
+
+
+def clear_local_install(self):
+    self.pending_archive_path = None
+    self.lbl_install_file.setText("No archive selected")
+    self.lbl_install_type.setText("")
+    self.btn_install_archive.setEnabled(False)
+    self.btn_remove_archive.setEnabled(False)
+    self.install_file_card.setVisible(False)
+
+
+def start_local_install(self):
+    path = getattr(self, "pending_archive_path", None)
+    if not path:
+        return
+    self.btn_install_archive.setEnabled(False)
+    self.btn_install_archive.setText("Installing...")
+    self.installer_thread = ModInstallerThread(path)
+    self.installer_thread.finished.connect(self.on_mod_installed)
+    self.installer_thread.start()
 
 
 def open_file_installer(self):
@@ -87,20 +201,18 @@ def open_file_installer(self):
         self, "Select Mod Archive", str(Path.home() / "Downloads"), "Archives (*.zip *.7z)"
     )
     if file_path:
-        self.lbl_install_status.setText(f"Installing {Path(file_path).name}...")
-        self.installer_thread = ModInstallerThread(file_path)
-        self.installer_thread.finished.connect(self.on_mod_installed)
-        self.installer_thread.start()
+        self.set_install_archive(Path(file_path))
 
 
 def on_mod_installed(self, success, message):
+    self.btn_install_archive.setText("Install")
+    self.btn_install_archive.setEnabled(True)
     if success:
         QMessageBox.information(self, "Success", message)
-        self.lbl_install_status.setText(message)
+        self.clear_local_install()
         self.load_installed_mods()
     else:
         QMessageBox.critical(self, "Error", message)
-        self.lbl_install_status.setText(message)
 
 
 # ------------------ Linux Performance Tab ------------------
