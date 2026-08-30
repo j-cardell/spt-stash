@@ -22,6 +22,25 @@ from PySide6.QtWidgets import (
 
 from ..catalog.dependencies import check_dep_status
 from ..paths import IMAGE_CACHE_DIR
+from .theme import (
+    ACCENT,
+    ACCENT_HOVER,
+    BG,
+    BORDER,
+    BORDER_HOVER,
+    SUCCESS,
+    SURFACE,
+    SURFACE_2,
+    SURFACE_3,
+    TEXT,
+    TEXT_MUTED,
+    TOAST_BG,
+    TOAST_BORDER,
+    TOAST_TEXT,
+    TRACK_BG,
+    TRACK_BORDER,
+    WARNING,
+)
 
 
 class ClickableLabel(QLabel):
@@ -58,7 +77,7 @@ class ClickableLabel(QLabel):
 class LinkButton(QPushButton):
     """Flat button styled like an inline hyperlink; clickable area matches text."""
 
-    def __init__(self, text, color="#7c8cff", underline=True, parent=None):
+    def __init__(self, text, color=ACCENT, underline=True, parent=None):
         super().__init__(text, parent)
         self.setFlat(True)
         self.setCursor(Qt.PointingHandCursor)
@@ -73,7 +92,7 @@ class LinkButton(QPushButton):
                 font-size: 11.5px;
                 text-decoration: {deco};
             }}
-            QPushButton:hover {{ color: #a4afff; }}
+            QPushButton:hover {{ color: {ACCENT_HOVER}; }}
         """)
         self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
 
@@ -131,11 +150,11 @@ class ToggleSwitch(QAbstractButton):
         if self.isChecked():
             track_bg = QColor(74, 222, 128, 40)
             track_border = QColor(74, 222, 128, 100)
-            knob_color = QColor("#4ade80")
+            knob_color = QColor(SUCCESS)
         else:
-            track_bg = QColor("#1e222d")
-            track_border = QColor("#3a4052")
-            knob_color = QColor("#7f8698")
+            track_bg = QColor(TRACK_BG)
+            track_border = QColor(TRACK_BORDER)
+            knob_color = QColor(TEXT_MUTED)
 
         painter.setBrush(QBrush(track_bg))
         painter.setPen(QPen(track_border, 1.0))
@@ -178,7 +197,7 @@ class SearchField(QWidget):
 
 
 
-def _nav_pixmap(name, size=16, color="#7f8698"):  # 1space added to avoid conflict marker
+def _nav_pixmap(name, size=16, color=TEXT_MUTED):  # 1space added to avoid conflict marker
     """Render small monochrome nav/action icons as QPixmap."""
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
@@ -262,7 +281,7 @@ def _nav_pixmap(name, size=16, color="#7f8698"):  # 1space added to avoid confli
 
 def _search_pixmap():
     """Render a small magnifying-glass icon as QPixmap."""
-    return _nav_pixmap("browse", size=14, color="#7f8698")
+    return _nav_pixmap("browse", size=14, color=TEXT_MUTED)
 
 
 class CheckBox(QWidget):
@@ -299,16 +318,16 @@ class CheckBox(QWidget):
         rect = self.rect().adjusted(1, 1, -1, -1)
 
         if self._checked:
-            painter.setBrush(QBrush(QColor("#7c8cff")))
-            painter.setPen(QPen(QColor("#7c8cff"), 1))
+            painter.setBrush(QBrush(QColor(ACCENT)))
+            painter.setPen(QPen(QColor(ACCENT), 1))
         else:
-            painter.setBrush(QBrush(QColor("#14161d")))
-            painter.setPen(QPen(QColor("#3a4052"), 1))
+            painter.setBrush(QBrush(QColor(SURFACE)))
+            painter.setPen(QPen(QColor(TRACK_BORDER), 1))
 
         painter.drawRoundedRect(rect, 4, 4)
 
         if self._checked:
-            painter.setPen(QPen(QColor("#0f1016"), 2))
+            painter.setPen(QPen(QColor(BG), 2))
             painter.setBrush(Qt.NoBrush)
             x = rect.x() + 4
             y = rect.y() + 7
@@ -379,18 +398,6 @@ class ModItemDelegate(QStyledItemDelegate):
 
         status, _ = check_dep_status(mod.get("title", ""))
 
-        # V4 palette
-        BG = "#14161d"
-        SURFACE = "#1a1d27"
-        SURFACE_HOVER = "#212531"
-        BORDER = "#232733"
-        BORDER_HOVER = "#2e3346"
-        ACCENT = "#7c8cff"
-        TEXT = "#eceef3"
-        TEXT_MUTED = "#7f8698"
-        SUCCESS = "#4ade80"
-        WARNING = "#fbbf24"
-
         if status == "ENABLED":
             border_color = QColor(SUCCESS)
         elif status == "STAGED_DISABLED":
@@ -403,11 +410,11 @@ class ModItemDelegate(QStyledItemDelegate):
             border_color = QColor(BORDER)
 
         if is_selected:
-            bg_color = QColor(SURFACE)
+            bg_color = QColor(SURFACE_2)
         elif is_hovered:
-            bg_color = QColor(SURFACE_HOVER)
+            bg_color = QColor(SURFACE_3)
         else:
-            bg_color = QColor(BG)
+            bg_color = QColor(SURFACE)
 
         painter.setBrush(QBrush(bg_color))
         painter.setPen(QPen(border_color, 1.0))
@@ -481,9 +488,9 @@ class ToastNotification(QLabel):
         self,
         text,
         duration_ms=2200,
-        bg_color="#181825",
-        border_color="#89b4fa",
-        text_color="#cdd6f4",
+        bg_color=TOAST_BG,
+        border_color=TOAST_BORDER,
+        text_color=TOAST_TEXT,
     ):
         self.setText(text)
         self.setStyleSheet(f"""
