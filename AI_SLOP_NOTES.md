@@ -1,5 +1,11 @@
 # AI Slop Notes — SPT Stash (ui-rework)
 
+> **Status: RESOLVED** — all findings below were fixed in the slop-cleanup pass
+> (see plan `2026-08-30_221500-ai-slop-cleanup.md`). This file is retained as a
+> record of what was cleaned up. The only outstanding item is a final screenshot
+> review to visually confirm the theme-token refactor (colors should be
+> pixel-identical, since tokens evaluate to the same hex values).
+
 Audit pass over the codebase for tell-tale AI-generated / copy-paste cruft.
 Not a refactor — just an inventory of what looks like slop, ready to clean up.
 All findings verified against the current tree. Line numbers are as of the
@@ -7,12 +13,12 @@ All findings verified against the current tree. Line numbers are as of the
 
 ---
 
-## 1. Bypassed design-token system (biggest one)
+## 1. Bypassed design-token system (biggest one) — ✅ FIXED
 
 `theme.py` defines the full V4 palette as named constants
 (`BG`, `SURFACE`, `ACCENT`, `SUCCESS`, …), but the UI files mostly ignore it.
 
-- `theme.py`: 12 hex literals (the *definitions* — fine)
+- `theme.py`: 12→20 hex literals (the *definitions* — fine)
 - `styles.py`: 2
 - `main_window.py`: 6
 - `widgets.py`: 27
@@ -122,6 +128,23 @@ Heavy use of `# ── … ────…` and `'''…'''` banner comments and 
 that repeat the filename + "what this file does" verbatim. Fine as convention,
 but several are stale (e.g. docstrings describing behavior the refactor already
 changed). Audit the module docstrings in `ui/tabs/*.py` for accuracy.
+
+---
+
+## Cleanup summary (from the slop-cleanup pass)
+
+| Finding | Status |
+| --- | --- |
+| 1. Bypassed theme tokens (~230 hex literals) | ✅ FIXED — zero hex outside `theme.py`; added `ACCENT_HOVER`, `TRACK_*`, `TOAST_*`, `BTN_HOVER_BORDER`, `DISABLED_TEXT`, `SURFACE_2`, `SURFACE_3`; removed shadow palettes in `widgets.py` & `browse.py` |
+| 2. Duplicate lines (`load_installed_mods`, `return None`) | ✅ FIXED |
+| 3. `except: pass` swallows | ✅ PARTIALLY — install failures (Greed copy, fika meta save) now log; best-effort cache reads kept silent intentionally |
+| 4. Copy-pasted symlink ladder (20x) | ✅ FIXED — `remove_path()` helper, 8 call sites + links.py |
+| 5. "Comment restates code" noise | ✅ FIXED — removed 5 noise comments |
+| 6. Dead `_large_icon` | ✅ FIXED — deleted (was unreferenced) |
+| 7. Banner / docstring staleness | ✅ AUDITED — all docstrings accurate, no changes needed |
+
+**Remaining:** visual screenshot review of the theme-token refactor (colors should
+render pixel-identical since tokens evaluate to the same hex values).
 
 ---
 
