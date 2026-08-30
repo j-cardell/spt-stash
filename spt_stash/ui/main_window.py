@@ -33,7 +33,7 @@ from .tabs import installed as installed_tab
 from .tabs import installer as installer_tab
 from .tabs import performance as performance_tab
 from .tabs import presets as presets_tab
-from .theme import DANGER, SUCCESS
+from .theme import ACCENT, DANGER, SUCCESS, TEXT_MUTED, TOAST_BG, TOAST_BORDER, TOAST_TEXT
 from .toast import ToastManager
 from .widgets import _nav_pixmap
 
@@ -108,7 +108,7 @@ class SPTModManagerWindow(QMainWindow):
         for idx, (icon_name, label, _attr) in enumerate(nav_items):
             btn = QPushButton(label)
             btn.setProperty("nav", "true")
-            btn.setIcon(QIcon(_nav_pixmap(icon_name, size=16, color="#7f8698")))
+            btn.setIcon(QIcon(_nav_pixmap(icon_name, size=16, color=TEXT_MUTED)))
             btn.setIconSize(QSize(16, 16))
             btn.setCheckable(True)
             if idx == 0:
@@ -120,7 +120,7 @@ class SPTModManagerWindow(QMainWindow):
         # Apply accent icon color to checked nav buttons after stylesheet is known.
         def _refresh_nav_icons():
             for b, (icon_name, _, _) in zip(self.nav_buttons, nav_items):
-                color = "#7c8cff" if b.isChecked() else "#7f8698"
+                color = ACCENT if b.isChecked() else TEXT_MUTED
                 b.setIcon(QIcon(_nav_pixmap(icon_name, size=16, color=color)))
         for b in self.nav_buttons:
             b.toggled.connect(_refresh_nav_icons)
@@ -319,9 +319,9 @@ class SPTModManagerWindow(QMainWindow):
         self,
         text,
         duration_ms=2500,
-        bg_color="#181825",
-        border_color="#89b4fa",
-        text_color="#cdd6f4",
+        bg_color=TOAST_BG,
+        border_color=TOAST_BORDER,
+        text_color=TOAST_TEXT,
     ):
         """Compatibility wrapper for toast notifications."""
         self.toast._show(text, border_color, duration_ms)

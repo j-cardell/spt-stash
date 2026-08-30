@@ -24,6 +24,7 @@ from ...system.hardware import (
     detect_cpu_core_allocation,
     detect_gpu_hardware,
 )
+from ..theme import BG, BORDER, SUCCESS, SURFACE, TEXT, TEXT_MUTED
 from ..widgets import ToggleSwitch, _nav_pixmap
 
 
@@ -45,7 +46,7 @@ def setup_performance_tab(self):
     lbl_sub = QLabel(
         "All performance optimizations are OFF by default. Enable recommended driver flags for your hardware."
     )
-    lbl_sub.setStyleSheet("color: #7f8698; font-size: 12px;")
+    lbl_sub.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
     header_v.addWidget(lbl_title)
     header_v.addWidget(lbl_sub)
     top_header.addLayout(header_v)
@@ -59,12 +60,12 @@ def setup_performance_tab(self):
     hw_layout.setSpacing(16)
 
     lbl_gpu = QLabel(f"<b>GPU:</b> {gpu_info['vendor']} ({gpu_info['name']})")
-    lbl_gpu.setStyleSheet("font-size: 12.5px; color: #eceef3;")
+    lbl_gpu.setStyleSheet(f"font-size: 12.5px; color: {TEXT};")
     hw_layout.addWidget(lbl_gpu)
 
     cpu_info = detect_cpu_core_allocation()
     lbl_cpu = QLabel(f"<b>CPU:</b> {cpu_info['model_name']} ({cpu_info['threads']} Threads)")
-    lbl_cpu.setStyleSheet("font-size: 12.5px; color: #eceef3;")
+    lbl_cpu.setStyleSheet(f"font-size: 12.5px; color: {TEXT};")
     hw_layout.addWidget(lbl_cpu)
 
     deps = audit_system_dependencies()
@@ -72,7 +73,7 @@ def setup_performance_tab(self):
         f"<b>MangoHud:</b> {'Ready' if deps['mangohud'] else 'Missing'} &nbsp;|&nbsp; "
         f"<b>GameMode:</b> {'Ready' if deps['gamemode'] else 'Missing'}"
     )
-    lbl_deps.setStyleSheet("font-size: 12px; color: #7f8698;")
+    lbl_deps.setStyleSheet(f"font-size: 12px; color: {TEXT_MUTED};")
     hw_layout.addWidget(lbl_deps)
 
     layout.addWidget(hw_banner)
@@ -84,16 +85,16 @@ def setup_performance_tab(self):
     def _create_perf_card(title_text, desc_text, switch_widget, extra_widget=None):
         card = QFrame()
         card.setObjectName("perfCard")
-        card.setStyleSheet("""
-            QFrame#perfCard {
-                background-color: #14161d;
-                border: 1px solid #232733;
+        card.setStyleSheet(f"""
+            QFrame#perfCard {{
+                background-color: {SURFACE};
+                border: 1px solid {BORDER};
                 border-radius: 10px;
-            }
-            QFrame#perfCard QLabel {
+            }}
+            QFrame#perfCard QLabel {{
                 background: transparent;
                 border: none;
-            }
+            }}
         """)
         c_layout = QVBoxLayout(card)
         c_layout.setContentsMargins(16, 14, 16, 14)
@@ -102,14 +103,14 @@ def setup_performance_tab(self):
         head_row = QHBoxLayout()
         head_row.setSpacing(10)
         lbl_h = QLabel(title_text)
-        lbl_h.setStyleSheet("font-weight: 700; font-size: 13px; color: #eceef3;")
+        lbl_h.setStyleSheet(f"font-weight: 700; font-size: 13px; color: {TEXT};")
         head_row.addWidget(lbl_h)
         head_row.addStretch()
         head_row.addWidget(switch_widget)
         c_layout.addLayout(head_row)
 
         lbl_d = QLabel(desc_text)
-        lbl_d.setStyleSheet("color: #7f8698; font-size: 11.5px; line-height: 1.4;")
+        lbl_d.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; line-height: 1.4;")
         lbl_d.setWordWrap(True)
         c_layout.addWidget(lbl_d)
 
@@ -163,7 +164,7 @@ def setup_performance_tab(self):
     cores_box = QHBoxLayout()
     cores_box.setSpacing(8)
     lbl_srv = QLabel("Server:")
-    lbl_srv.setStyleSheet("color: #7f8698; font-size: 11.5px; font-weight: 600;")
+    lbl_srv.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; font-weight: 600;")
     cores_box.addWidget(lbl_srv)
     self.txt_server_cores = QLineEdit(cfg.get("server_cpu_cores", cpu_info["server_cores"]))
     self.txt_server_cores.setFixedWidth(70)
@@ -171,7 +172,7 @@ def setup_performance_tab(self):
     cores_box.addWidget(self.txt_server_cores)
 
     lbl_cli = QLabel("Client:")
-    lbl_cli.setStyleSheet("color: #7f8698; font-size: 11.5px; font-weight: 600;")
+    lbl_cli.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; font-weight: 600;")
     cores_box.addWidget(lbl_cli)
     self.txt_client_cores = QLineEdit(cfg.get("client_cpu_cores", cpu_info["client_cores"]))
     self.txt_client_cores.setFixedWidth(70)
@@ -179,7 +180,7 @@ def setup_performance_tab(self):
     cores_box.addWidget(self.txt_client_cores)
 
     btn_auto_cpu = QPushButton("Auto")
-    btn_auto_cpu.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#7f8698")))
+    btn_auto_cpu.setIcon(QIcon(_nav_pixmap("performance", size=14, color=TEXT_MUTED)))
     btn_auto_cpu.setIconSize(QSize(14, 14))
     btn_auto_cpu.setProperty("role", "ghost")
     btn_auto_cpu.setProperty("size", "sm")
@@ -189,7 +190,7 @@ def setup_performance_tab(self):
     cpu_extra_lay.addLayout(cores_box)
 
     self.lbl_cpu_detected_info = QLabel(
-        f"<small style='color: #7f8698;'>Detected {cpu_info['threads']} threads on {cpu_info['model_name']}.</small>"
+        f"<small style='color: {TEXT_MUTED};'>Detected {cpu_info['threads']} threads on {cpu_info['model_name']}.</small>"
     )
     cpu_extra_lay.addWidget(self.lbl_cpu_detected_info)
 
@@ -226,7 +227,7 @@ def setup_performance_tab(self):
 
     # Apply Button
     btn_apply = QPushButton("Save && Apply to launcher.sh && server.sh")
-    btn_apply.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#0f1016")))
+    btn_apply.setIcon(QIcon(_nav_pixmap("performance", size=14, color=BG)))
     btn_apply.setIconSize(QSize(14, 14))
     btn_apply.setProperty("role", "primary")
     btn_apply.setProperty("size", "lg")
@@ -390,7 +391,7 @@ def auto_detect_cpu_allocation_ui(self):
     self.txt_server_cores.setText(info["server_cores"])
     self.txt_client_cores.setText(info["client_cores"])
     self.lbl_cpu_detected_info.setText(
-        f"<small style='color: #4ade80;'>Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads).</small>"
+        f"<small style='color: {SUCCESS};'>Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads).</small>"
     )
     if hasattr(self, "toast"):
         self.toast.success(f"CPU Auto-Detected: {info['threads']} Threads")

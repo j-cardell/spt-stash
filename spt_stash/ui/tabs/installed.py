@@ -35,6 +35,7 @@ from ...staging.links import create_relative_symlink, purge_mod_files_and_symlin
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
 from ...version import is_version_newer
+from ..theme import ACCENT, BG, BORDER, DANGER, DISABLED_TEXT, SUCCESS, SURFACE, SURFACE_2, TEXT, TEXT_MUTED, WARNING
 from ..widgets import (
     CheckBox,
     ClickableLabel,
@@ -63,7 +64,7 @@ def setup_installed_tab(self):
     top_row.addWidget(lbl_title)
 
     self.lbl_installed_summary = QLabel("0 packages · 0 enabled")
-    self.lbl_installed_summary.setStyleSheet("color: #7f8698; font-size: 12px; margin-left: 4px;")
+    self.lbl_installed_summary.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; margin-left: 4px;")
     top_row.addWidget(self.lbl_installed_summary)
 
     top_row.addStretch()
@@ -143,7 +144,7 @@ def setup_installed_tab(self):
     toolbar.addWidget(btn_import)
 
     btn_refresh = QPushButton("Refresh")
-    btn_refresh.setIcon(QIcon(_nav_pixmap("refresh", size=14, color="#7f8698")))
+    btn_refresh.setIcon(QIcon(_nav_pixmap("refresh", size=14, color=TEXT_MUTED)))
     btn_refresh.setIconSize(QSize(14, 14))
     btn_refresh.setProperty("size", "sm")
     btn_refresh.setProperty("role", "ghost")
@@ -191,16 +192,16 @@ def setup_installed_tab(self):
     self._installed_detail_popup = QFrame(self.tab_installed)
     self._installed_detail_popup.setObjectName("modDetailPopup")
     self._installed_detail_popup.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
-    self._installed_detail_popup.setStyleSheet("""
-        QFrame#modDetailPopup {
-            background-color: #14161d;
-            border: 1px solid #232733;
+    self._installed_detail_popup.setStyleSheet(f"""
+        QFrame#modDetailPopup {{
+            background-color: {SURFACE};
+            border: 1px solid {BORDER};
             border-radius: 12px;
-        }
-        QFrame#modDetailPopup QLabel {
+        }}
+        QFrame#modDetailPopup QLabel {{
             background: transparent;
             border: none;
-        }
+        }}
     """)
     self._installed_detail_popup.setFixedSize(420, 520)
     popup_layout = QVBoxLayout(self._installed_detail_popup)
@@ -210,7 +211,7 @@ def setup_installed_tab(self):
     self.installed_detail = RemoteImageTextBrowser(self._installed_detail_popup)
     self.installed_detail.setOpenExternalLinks(True)
     self.installed_detail.setStyleSheet(
-        "background-color: transparent; border: none; color: #eceef3; padding: 0px;"
+        f"background-color: transparent; border: none; color: {TEXT}; padding: 0px;"
     )
     popup_layout.addWidget(self.installed_detail)
 
@@ -437,17 +438,17 @@ def render_installed_mods(self, mods):
 
         lbl_name = ClickableLabel(mod["name"])
         if mod["disabled"]:
-            lbl_name.setStyleSheet("font-weight: 600; font-size: 13px; color: #9aa0b0;")
+            lbl_name.setStyleSheet(f"font-weight: 600; font-size: 13px; color: {DISABLED_TEXT};")
         else:
-            lbl_name.setStyleSheet("font-weight: 600; font-size: 13px; color: #eceef3;")
+            lbl_name.setStyleSheet(f"font-weight: 600; font-size: 13px; color: {TEXT};")
         lbl_name.clicked.connect(lambda _m=mod: self.show_installed_mod_detail(_m))
         name_layout.addWidget(lbl_name)
 
         if author_str and author_str != "Community":
             if mod["disabled"]:
-                lbl_author = LinkButton(f"by {author_str}", color="#7f8698", underline=False)
+                lbl_author = LinkButton(f"by {author_str}", color=TEXT_MUTED, underline=False)
             else:
-                lbl_author = LinkButton(f"by {author_str}", color="#7c8cff", underline=True)
+                lbl_author = LinkButton(f"by {author_str}", color=ACCENT, underline=True)
             lbl_author.setToolTip(f"Open {author_str}'s profile on sp-mod.com")
             lbl_author.clicked.connect(lambda _m=mod: self.open_author_profile(_m))
             name_layout.addWidget(lbl_author)
@@ -472,13 +473,13 @@ def render_installed_mods(self, mods):
 
         display_ver = f"v{ver_str}" if not str(ver_str).startswith("v") else str(ver_str)
         item_ver = QTableWidgetItem(display_ver)
-        item_ver.setForeground(QColor("#7f8698"))
+        item_ver.setForeground(QColor(TEXT_MUTED))
         item_ver.setTextAlignment(Qt.AlignCenter)
         self.table_mods.setItem(row, 3, item_ver)
 
         # Col 4: Type
         item_type = QTableWidgetItem(mod["type"])
-        item_type.setForeground(QColor("#7f8698"))
+        item_type.setForeground(QColor(TEXT_MUTED))
         item_type.setTextAlignment(Qt.AlignCenter)
         self.table_mods.setItem(row, 4, item_type)
 
@@ -530,7 +531,7 @@ def render_installed_mods(self, mods):
         actions_layout.setAlignment(Qt.AlignCenter)
 
         btn_folder = QPushButton()
-        btn_folder.setIcon(QIcon(_nav_pixmap("folder", size=14, color="#7f8698")))
+        btn_folder.setIcon(QIcon(_nav_pixmap("folder", size=14, color=TEXT_MUTED)))
         btn_folder.setIconSize(QSize(14, 14))
         btn_folder.setToolTip("Open mod folder in File Manager")
         btn_folder.setProperty("iconBtn", "true")
@@ -538,7 +539,7 @@ def render_installed_mods(self, mods):
         actions_layout.addWidget(btn_folder)
 
         btn_web = QPushButton()
-        btn_web.setIcon(QIcon(_nav_pixmap("external", size=14, color="#7f8698")))
+        btn_web.setIcon(QIcon(_nav_pixmap("external", size=14, color=TEXT_MUTED)))
         btn_web.setIconSize(QSize(14, 14))
         btn_web.setToolTip("View on sp-mod.com Forge")
         btn_web.setProperty("iconBtn", "true")
@@ -546,7 +547,7 @@ def render_installed_mods(self, mods):
         actions_layout.addWidget(btn_web)
 
         btn_del = QPushButton()
-        btn_del.setIcon(QIcon(_nav_pixmap("trash", size=14, color="#f87171")))
+        btn_del.setIcon(QIcon(_nav_pixmap("trash", size=14, color=DANGER)))
         btn_del.setIconSize(QSize(14, 14))
         btn_del.setToolTip("Delete mod from Stash")
         btn_del.setProperty("iconBtn", "true")
@@ -746,7 +747,7 @@ def _render_installed_detail_html(self, mod, matched, desc_html):
 
     disabled = mod.get("disabled", False)
     status_text = "Disabled" if disabled else "Enabled"
-    status_color = "#f87171" if disabled else "#4ade80"
+    status_color = DANGER if disabled else SUCCESS
 
     mod_type = "Client/Server"
     if mod.get("has_client") and not mod.get("has_server"):
@@ -756,11 +757,11 @@ def _render_installed_detail_html(self, mod, matched, desc_html):
 
     fika = meta.get("fika_status", "Unknown")
     if "Compatible" in fika:
-        fika_color = "#4ade80"
+        fika_color = SUCCESS
     elif "Incompatible" in fika:
-        fika_color = "#f87171"
+        fika_color = DANGER
     else:
-        fika_color = "#fbbf24"
+        fika_color = WARNING
 
     img_url = matched.get("image_url", "") if matched else ""
     web_url = resolve_author_profile_url({"name": mod["name"], "author": author}) if author != "Community" else ""
@@ -768,31 +769,31 @@ def _render_installed_detail_html(self, mod, matched, desc_html):
 
     image_html = (
         f"<div style=\"text-align:center; margin-bottom:14px;\">"
-        f"<img src=\"{html.escape(img_url)}\" style=\"max-width:100%; max-height:180px; border-radius:8px; border:1px solid #232733;\" />"
+        f"<img src=\"{html.escape(img_url)}\" style=\"max-width:100%; max-height:180px; border-radius:8px; border:1px solid {BORDER};\" />"
         f"</div>"
         if img_url else ""
     )
 
     open_page_html = (
-        f"<a href=\"{html.escape(mod_link)}\" style=\"display:inline-block; background-color:rgba(124,140,255,0.10); border:1px solid rgba(124,140,255,0.25); border-radius:6px; padding:6px 12px; color:#7c8cff; text-decoration:none; font-weight:600; font-size:12px; margin-bottom:14px;\">Open Page</a>"
+        f"<a href=\"{html.escape(mod_link)}\" style=\"display:inline-block; background-color:rgba(124,140,255,0.10); border:1px solid rgba(124,140,255,0.25); border-radius:6px; padding:6px 12px; color:{ACCENT}; text-decoration:none; font-weight:600; font-size:12px; margin-bottom:14px;\">Open Page</a>"
         if mod_link else ""
     )
 
-    spt_row = f"<tr><td style=\"color:#7f8698;\"><b>SPT Version:</b></td><td>{html.escape(spt_ver)}</td></tr>" if spt_ver else ""
-    author_link = f"| <a href=\"{html.escape(web_url)}\" style=\"color:#7c8cff;\">Author profile</a>" if web_url else ""
+    spt_row = f"<tr><td style=\"color:{TEXT_MUTED};\"><b>SPT Version:</b></td><td>{html.escape(spt_ver)}</td></tr>" if spt_ver else ""
+    author_link = f"| <a href=\"{html.escape(web_url)}\" style=\"color:{ACCENT};\">Author profile</a>" if web_url else ""
 
-    return f"""<div style=\"color:#eceef3; font-size:13px; line-height:1.5;\">
-        <h2 style=\"margin:0 0 6px 0; font-size:17px;\">{html.escape(mod['name'])} <span style=\"color:#7c8cff;\">v{html.escape(ver)}</span></h2>
-        <p style=\"color:#7f8698; margin:0 0 10px 0;\">by <span style=\"color:#7c8cff;\">{html.escape(author)}</span> {author_link}</p>
+    return f"""<div style=\"color:{TEXT}; font-size:13px; line-height:1.5;\">
+        <h2 style=\"margin:0 0 6px 0; font-size:17px;\">{html.escape(mod['name'])} <span style=\"color:{ACCENT};\">v{html.escape(ver)}</span></h2>
+        <p style=\"color:{TEXT_MUTED}; margin:0 0 10px 0;\">by <span style=\"color:{ACCENT};\">{html.escape(author)}</span> {author_link}</p>
         {open_page_html}
         {image_html}
-        <div style=\"background-color:#0f1016; border:1px solid #1a1d27; border-radius:8px; padding:10px; margin:12px 0 12px 0;\">
-            <table style=\"width:100%; font-size:12px; color:#eceef3; border-collapse:collapse;\">
-                <tr><td style=\"color:#7f8698; width:100px;\"><b>Status:</b></td><td><span style=\"color:{status_color}; font-weight:600;\">{status_text}</span></td></tr>
-                <tr><td style=\"color:#7f8698;\"><b>Type:</b></td><td>{html.escape(mod_type)}</td></tr>
-                <tr><td style=\"color:#7f8698;\"><b>Category:</b></td><td>{html.escape(cat)}</td></tr>
+        <div style=\"background-color:{BG}; border:1px solid {SURFACE_2}; border-radius:8px; padding:10px; margin:12px 0 12px 0;\">
+            <table style=\"width:100%; font-size:12px; color:{TEXT}; border-collapse:collapse;\">
+                <tr><td style=\"color:{TEXT_MUTED}; width:100px;\"><b>Status:</b></td><td><span style=\"color:{status_color}; font-weight:600;\">{status_text}</span></td></tr>
+                <tr><td style=\"color:{TEXT_MUTED};\"><b>Type:</b></td><td>{html.escape(mod_type)}</td></tr>
+                <tr><td style=\"color:{TEXT_MUTED};\"><b>Category:</b></td><td>{html.escape(cat)}</td></tr>
                 {spt_row}
-                <tr><td style=\"color:#7f8698;\"><b>Fika:</b></td><td><span style=\"color:{fika_color}; font-weight:600;\">{html.escape(fika)}</span></td></tr>
+                <tr><td style=\"color:{TEXT_MUTED};\"><b>Fika:</b></td><td><span style=\"color:{fika_color}; font-weight:600;\">{html.escape(fika)}</span></td></tr>
             </table>
         </div>
         {desc_html}
@@ -824,7 +825,7 @@ def show_installed_mod_detail(self, mod):
 
     mod_link = matched.get("link", "") if matched else ""
     if desc_html.rstrip().endswith('...') and mod_link:
-        desc_html += f"<p style=\"color:#7f8698; margin-top:10px;\">Full description available on <a href=\"{html.escape(mod_link)}\" style=\"color:#7c8cff;\">sp-mod.com</a>.</p>"
+        desc_html += f"<p style=\"color:{TEXT_MUTED}; margin-top:10px;\">Full description available on <a href=\"{html.escape(mod_link)}\" style=\"color:{ACCENT};\">sp-mod.com</a>.</p>"
 
     body_html = f"<p>{html.escape(desc_html)}</p>" if desc_html else ""
 
@@ -832,16 +833,16 @@ def show_installed_mod_detail(self, mod):
         self._installed_detail_popup = QFrame(self.tab_installed)
         self._installed_detail_popup.setObjectName("modDetailPopup")
         self._installed_detail_popup.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
-        self._installed_detail_popup.setStyleSheet("""
-            QFrame#modDetailPopup {
-                background-color: #14161d;
-                border: 1px solid #232733;
+        self._installed_detail_popup.setStyleSheet(f"""
+            QFrame#modDetailPopup {{
+                background-color: {SURFACE};
+                border: 1px solid {BORDER};
                 border-radius: 12px;
-            }
-            QFrame#modDetailPopup QLabel {
+            }}
+            QFrame#modDetailPopup QLabel {{
                 background: transparent;
                 border: none;
-            }
+            }}
         """)
         self._installed_detail_popup.setFixedSize(420, 520)
         popup_layout = QVBoxLayout(self._installed_detail_popup)
@@ -850,7 +851,7 @@ def show_installed_mod_detail(self, mod):
 
         self.installed_detail = RemoteImageTextBrowser(self._installed_detail_popup)
         self.installed_detail.setOpenExternalLinks(True)
-        self.installed_detail.setStyleSheet("background-color: transparent; border: none; color: #eceef3; padding: 0px;")
+        self.installed_detail.setStyleSheet(f"background-color: transparent; border: none; color: {TEXT}; padding: 0px;")
         popup_layout.addWidget(self.installed_detail)
 
     self.installed_detail.setHtml(self._render_installed_detail_html(mod, matched, body_html))
@@ -882,11 +883,11 @@ def show_installed_table_context_menu(self, pos):
         return
 
     menu = QMenu(self)
-    menu.setStyleSheet("""
-        QMenu { background-color: #14161d; color: #eceef3; border: 1px solid #232733; border-radius: 8px; padding: 6px; }
-        QMenu::item { padding: 8px 24px; border-radius: 4px; font-weight: 500; }
-        QMenu::item:selected { background-color: #1a1d27; color: #7c8cff; }
-        QMenu::separator { height: 1px; background-color: #232733; margin: 4px 0px; }
+    menu.setStyleSheet(f"""
+        QMenu {{ background-color: {SURFACE}; color: {TEXT}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px; }}
+        QMenu::item {{ padding: 8px 24px; border-radius: 4px; font-weight: 500; }}
+        QMenu::item:selected {{ background-color: {SURFACE_2}; color: {ACCENT}; }}
+        QMenu::separator {{ height: 1px; background-color: {BORDER}; margin: 4px 0px; }}
     """)
 
     act_open_folder = menu.addAction(" Open Folder in File Manager")
@@ -979,7 +980,7 @@ def check_installed_mod_updates(self, *args):
         return
 
     upd_list = "\n".join(
-        f"• <b>{html.escape(u['title'])}</b>: v{u['current_ver']} → <b style='color:#4ade80;'>v{u['latest_ver']}</b>"
+        f"• <b>{html.escape(u['title'])}</b>: v{u['current_ver']} → <b style='color:{SUCCESS};'>v{u['latest_ver']}</b>"
         for u in updates[:15]
     )
     extra = f"\n...and {len(updates) - 15} more" if len(updates) > 15 else ""
@@ -1155,10 +1156,10 @@ def show_audit_issues_dialog(self, issues):
     for item in issues:
         msg += f"<b>• {item['mod_name']}</b>:<br/>"
         for d in item["disabled"]:
-            msg += f"  - <span style='color:#fbbf24;'>Disabled in Stash:</span> {d['title']}<br/>"
+            msg += f"  - <span style='color:{WARNING};'>Disabled in Stash:</span> {d['title']}<br/>"
             all_disabled_to_enable.append(d)
         for m in item["missing"]:
-            msg += f"  - <span style='color:#f87171;'>Missing:</span> {m['title']}<br/>"
+            msg += f"  - <span style='color:{DANGER};'>Missing:</span> {m['title']}<br/>"
             all_missing_to_download.append(m)
         msg += "<br/>"
 

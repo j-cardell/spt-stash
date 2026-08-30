@@ -38,6 +38,7 @@ from ...paths import (
 from ...staging.links import create_relative_symlink
 from ...staging.metadata import load_mod_meta
 from ..dialogs import SavePresetDialog
+from ..theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE, SURFACE_2, TEXT, TEXT_MUTED
 from ..widgets import _nav_pixmap
 
 
@@ -55,7 +56,7 @@ def setup_presets_tab(self):
     top_row.addWidget(lbl_title)
 
     self.lbl_presets_summary = QLabel("0 saved presets")
-    self.lbl_presets_summary.setStyleSheet("color: #7f8698; font-size: 12px; margin-left: 4px;")
+    self.lbl_presets_summary.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; margin-left: 4px;")
     top_row.addWidget(self.lbl_presets_summary)
 
     top_row.addStretch()
@@ -83,7 +84,7 @@ def setup_presets_tab(self):
 
     #  Splitter: Presets List & Preview Detail
     splitter = QSplitter(Qt.Horizontal)
-    splitter.setStyleSheet("QSplitter::handle { background-color: #232733; width: 1px; }")
+    splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {BORDER}; width: 1px; }}")
 
     self.list_presets = QListWidget()
     self.list_presets.setSpacing(2)
@@ -98,7 +99,7 @@ def setup_presets_tab(self):
     self.web_preset_detail = QTextBrowser()
     self.web_preset_detail.setOpenExternalLinks(True)
     self.web_preset_detail.setStyleSheet(
-        "background-color: #14161d; border: 1px solid #232733; border-radius: 8px; color: #eceef3; padding: 12px;"
+        f"background-color: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px; color: {TEXT}; padding: 12px;"
     )
     right_layout.addWidget(self.web_preset_detail)
 
@@ -110,7 +111,7 @@ def setup_presets_tab(self):
     self.btn_apply_preset.setProperty("size", "lg")
     self.btn_apply_preset.clicked.connect(self.apply_selected_preset)
     self.btn_apply_preset.setEnabled(False)
-    self.btn_apply_preset.setIcon(QIcon(_nav_pixmap("install", size=14, color="#4ade80")))
+    self.btn_apply_preset.setIcon(QIcon(_nav_pixmap("install", size=14, color=SUCCESS)))
     self.btn_apply_preset.setIconSize(QSize(14, 14))
     bot_p_layout.addWidget(self.btn_apply_preset)
 
@@ -126,7 +127,7 @@ def setup_presets_tab(self):
     self.btn_delete_preset.setProperty("size", "lg")
     self.btn_delete_preset.clicked.connect(self.delete_selected_preset)
     self.btn_delete_preset.setEnabled(False)
-    self.btn_delete_preset.setIcon(QIcon(_nav_pixmap("trash", size=14, color="#f87171")))
+    self.btn_delete_preset.setIcon(QIcon(_nav_pixmap("trash", size=14, color=DANGER)))
     self.btn_delete_preset.setIconSize(QSize(14, 14))
     bot_p_layout.addWidget(self.btn_delete_preset)
 
@@ -145,7 +146,7 @@ def load_presets_list(self):
     self.btn_export_preset.setEnabled(False)
     self.btn_delete_preset.setEnabled(False)
     self.web_preset_detail.setHtml(
-        "<div style='color:#7f8698; text-align:center; margin-top:80px; font-size:14px;'>"
+        f"<div style='color:{TEXT_MUTED}; text-align:center; margin-top:80px; font-size:14px;'>"
         "Select a Preset on the left to preview its components and status"
         "</div>"
     )
@@ -172,27 +173,27 @@ def load_presets_list(self):
         item.setData(Qt.UserRole, pr)
         self.list_presets.addItem(item)
 
-    self.list_presets.setStyleSheet("""
-    QListWidget {
-        background-color: #0f1016;
+    self.list_presets.setStyleSheet(f"""
+    QListWidget {{
+        background-color: {BG};
         border: none;
-        border-right: 1px solid #232733;
+        border-right: 1px solid {BORDER};
         outline: none;
-    }
-    QListWidget::item {
-        color: #eceef3;
+    }}
+    QListWidget::item {{
+        color: {TEXT};
         padding: 12px 14px;
-        border-bottom: 1px solid #232733;
+        border-bottom: 1px solid {BORDER};
         border-left: 3px solid transparent;
-    }
-    QListWidget::item:hover {
-        background-color: #14161d;
-    }
-    QListWidget::item:selected {
-        background-color: #1a1d27;
-        border-left: 3px solid #7c8cff;
+    }}
+    QListWidget::item:hover {{
+        background-color: {SURFACE};
+    }}
+    QListWidget::item:selected {{
+        background-color: {SURFACE_2};
+        border-left: 3px solid {ACCENT};
         padding-left: 11px;
-    }
+    }}
     """)
 
 
@@ -238,7 +239,7 @@ def on_preset_selected(self):
         m_author = html.escape(m_author)
 
         if m_name and m_raw_title.lower() != m_name.lower():
-            m_title = f"{html.escape(m_raw_title)} <span style='color:#7c8cff; font-size:11px;'>({html.escape(m_name)})</span>"
+            m_title = f"{html.escape(m_raw_title)} <span style='color:{ACCENT}; font-size:11px;'>({html.escape(m_name)})</span>"
         else:
             m_title = html.escape(m_raw_title)
 
@@ -279,43 +280,43 @@ def on_preset_selected(self):
                 is_staged = st == "STAGED_DISABLED" or is_enabled
 
         if is_enabled:
-            st_badge = "<span style='color:#4ade80; font-weight:600;'> Enabled</span>"
+            st_badge = "<span style='color:{SUCCESS}; font-weight:600;'> Enabled</span>"
         elif is_staged:
-            st_badge = "<span style='color:#fbbf24; font-weight:600;'> Disabled in Stash</span>"
+            st_badge = "<span style='color:{WARNING}; font-weight:600;'> Disabled in Stash</span>"
         else:
-            st_badge = "<span style='color:#f87171; font-weight:600;'> Missing</span>"
+            st_badge = "<span style='color:{DANGER}; font-weight:600;'> Missing</span>"
 
         link_html = (
-            f"<a href='{html.escape(m_link)}' style='color:#7c8cff; text-decoration:none;'>View</a>" if m_link else "Local"
+            f"<a href='{html.escape(m_link)}' style='color:{ACCENT}; text-decoration:none;'>View</a>" if m_link else "Local"
         )
 
         mods_table += f"""
         <tr>
-            <td style='padding:8px 6px; border-bottom:1px solid #232733;'><b>{m_title}</b> <span style='color:#7f8698;'>v{m_ver}</span></td>
-            <td style='padding:8px 6px; border-bottom:1px solid #232733; color:#7f8698;'>by {m_author}</td>
-            <td style='padding:8px 6px; border-bottom:1px solid #232733;'>{m_type}</td>
-            <td style='padding:8px 6px; border-bottom:1px solid #232733;'>{st_badge}</td>
-            <td style='padding:8px 6px; border-bottom:1px solid #232733;'>{link_html}</td>
+            <td style='padding:8px 6px; border-bottom:1px solid {BORDER};'><b>{m_title}</b> <span style='color:{TEXT_MUTED};'>v{m_ver}</span></td>
+            <td style='padding:8px 6px; border-bottom:1px solid {BORDER}; color:{TEXT_MUTED};'>by {m_author}</td>
+            <td style='padding:8px 6px; border-bottom:1px solid {BORDER};'>{m_type}</td>
+            <td style='padding:8px 6px; border-bottom:1px solid {BORDER};'>{st_badge}</td>
+            <td style='padding:8px 6px; border-bottom:1px solid {BORDER};'>{link_html}</td>
         </tr>
         """
 
     html_content = f"""
     <html>
-    <body style='font-family:"Segoe UI", Inter, sans-serif; background-color:#14161d; color:#eceef3; padding:10px;'>
-        <div style='border-bottom:1px solid #232733; padding-bottom:12px; margin-bottom:14px;'>
-            <h2 style='color:#eceef3; margin:0 0 6px 0;'>{name}</h2>
-            <div style='color:#7f8698; font-size:12px; margin-bottom:8px;'>
-                <b>SPT Target:</b> <span style='color:#7c8cff;'>{ver}</span> &nbsp;|&nbsp;
+    <body style='font-family:"Segoe UI", Inter, sans-serif; background-color:{SURFACE}; color:{TEXT}; padding:10px;'>
+        <div style='border-bottom:1px solid {BORDER}; padding-bottom:12px; margin-bottom:14px;'>
+            <h2 style='color:{TEXT}; margin:0 0 6px 0;'>{name}</h2>
+            <div style='color:{TEXT_MUTED}; font-size:12px; margin-bottom:8px;'>
+                <b>SPT Target:</b> <span style='color:{ACCENT};'>{ver}</span> &nbsp;|&nbsp;
                 <b>Created:</b> {created} &nbsp;|&nbsp;
                 <b>Total Mods:</b> {len(mods)}
             </div>
-            <div style='color:#bac2de; font-size:13px;'>{desc}</div>
+            <div style='color:{TEXT_MUTED}; font-size:13px;'>{desc}</div>
         </div>
 
-        <h3 style='color:#eceef3; margin:14px 0 8px 0; font-size:14px;'>Configured Mod Components ({len(mods)})</h3>
+        <h3 style='color:{TEXT}; margin:14px 0 8px 0; font-size:14px;'>Configured Mod Components ({len(mods)})</h3>
         <table style='width:100%; border-collapse:collapse; font-size:12.5px;'>
             <thead>
-                <tr style='background-color:#1a1d27; color:#7f8698; text-align:left;'>
+                <tr style='background-color:{SURFACE_2}; color:{TEXT_MUTED}; text-align:left;'>
                     <th style='padding:8px 6px;'>Mod Name</th>
                     <th style='padding:8px 6px;'>Author</th>
                     <th style='padding:8px 6px;'>Type</th>
