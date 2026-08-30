@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -35,6 +35,7 @@ from .tabs import performance as performance_tab
 from .tabs import presets as presets_tab
 from .theme import DANGER, SUCCESS
 from .toast import ToastManager
+from .widgets import _nav_pixmap
 
 
 class SPTModManagerWindow(QMainWindow):
@@ -70,7 +71,7 @@ class SPTModManagerWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        # ── Sidebar ──────────────────────────────────────────────────────────
+        #  Sidebar
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar_layout = QVBoxLayout(sidebar)
@@ -97,22 +98,33 @@ class SPTModManagerWindow(QMainWindow):
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
         nav_items = [
-            ("📦  Installed", "tab_installed"),
-            ("🏷️  Presets", "tab_presets"),
-            ("🔍  Browse Forge", "tab_browse"),
-            ("⬇️  Install", "tab_installer"),
-            ("⚡  Performance", "tab_performance"),
+            ("installed", "Installed", "tab_installed"),
+            ("presets", "Presets", "tab_presets"),
+            ("browse", "Browse Forge", "tab_browse"),
+            ("install", "Install", "tab_installer"),
+            ("performance", "Performance", "tab_performance"),
         ]
         self.nav_buttons = []
-        for idx, (label, _attr) in enumerate(nav_items):
+        for idx, (icon_name, label, _attr) in enumerate(nav_items):
             btn = QPushButton(label)
             btn.setProperty("nav", "true")
+            btn.setIcon(QIcon(_nav_pixmap(icon_name, size=16, color="#7f8698")))
+            btn.setIconSize(QSize(16, 16))
             btn.setCheckable(True)
             if idx == 0:
                 btn.setChecked(True)
             self.nav_group.addButton(btn)
             sidebar_layout.addWidget(btn)
             self.nav_buttons.append(btn)
+
+        # Apply accent icon color to checked nav buttons after stylesheet is known.
+        def _refresh_nav_icons():
+            for b, (icon_name, _, _) in zip(self.nav_buttons, nav_items):
+                color = "#7c8cff" if b.isChecked() else "#7f8698"
+                b.setIcon(QIcon(_nav_pixmap(icon_name, size=16, color=color)))
+        for b in self.nav_buttons:
+            b.toggled.connect(_refresh_nav_icons)
+        _refresh_nav_icons()
 
         sidebar_layout.addStretch()
 
@@ -125,7 +137,7 @@ class SPTModManagerWindow(QMainWindow):
 
         status_row = QHBoxLayout()
         status_row.setSpacing(6)
-        self.server_dot = QLabel("●")
+        self.server_dot = QLabel("")
         self.server_dot.setStyleSheet(f"color: {DANGER}; font-size: 13px;")
         status_row.addWidget(self.server_dot)
         self.server_status_lbl = QLabel("Server: Stopped")
@@ -134,7 +146,7 @@ class SPTModManagerWindow(QMainWindow):
         status_row.addStretch()
         server_layout.addLayout(status_row)
 
-        self.btn_launch = QPushButton("▶ Launch SPT")
+        self.btn_launch = QPushButton(" Launch SPT")
         self.btn_launch.setProperty("role", "primary")
         self.btn_launch.setProperty("size", "lg")
         self.btn_launch.clicked.connect(self.launch_spt)
@@ -148,7 +160,7 @@ class SPTModManagerWindow(QMainWindow):
         self.btn_server_control.clicked.connect(self.toggle_server_control)
         btn_row.addWidget(self.btn_server_control, 1)
 
-        btn_settings = QPushButton("⚙ Settings")
+        btn_settings = QPushButton(" Settings")
         btn_settings.setProperty("role", "ghost")
         btn_settings.setProperty("size", "sm")
         btn_settings.clicked.connect(self.open_settings_dialog)
@@ -159,7 +171,7 @@ class SPTModManagerWindow(QMainWindow):
 
         root_layout.addWidget(sidebar)
 
-        # ── Right Side (Stacked Tab Pages) ──────────────────────────────────
+        #  Right Side (Stacked Tab Pages)
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
@@ -235,7 +247,7 @@ class SPTModManagerWindow(QMainWindow):
     def toggle_server_control(self):
         if is_server_running():
             stop_server()
-            self.toast.error("🛑 Stopping SPT Server...")
+            self.toast.error(" Stopping SPT Server...")
             QTimer.singleShot(500, self.check_server_status)
         else:
             cfg = load_config()
@@ -266,7 +278,7 @@ class SPTModManagerWindow(QMainWindow):
                     print(f"Failed launching SPT.Server.Linux directly: {e}")
 
             if launched:
-                self.toast.success("🚀 Starting SPT Server...")
+                self.toast.success("Starting SPT Server...")
             else:
                 self.show_missing_script_dialog("server.sh", server_script)
 
@@ -278,7 +290,7 @@ class SPTModManagerWindow(QMainWindow):
         launcher_script = Path(cfg.get("launcher_script", str(spt_root / "launcher.sh")))
         if launcher_script.exists():
             subprocess.Popen([str(launcher_script)], cwd=str(launcher_script.parent))
-            self.toast.success(f"🚀 Launching SPT via {launcher_script.name}...")
+            self.toast.success(f"Launching SPT via {launcher_script.name}...")
         else:
             self.show_missing_script_dialog("launcher.sh", launcher_script)
 
@@ -291,7 +303,7 @@ class SPTModManagerWindow(QMainWindow):
 
             self.installed_spt_ver = detect_installed_spt_version()
             self.load_installed_mods()
-            self.toast.success("💾 Settings saved and applied!")
+            self.toast.success("Settings saved and applied!")
 
     def show_toast(
         self,
@@ -307,10 +319,10 @@ class SPTModManagerWindow(QMainWindow):
     def show_missing_script_dialog(self, script_name, script_path):
         QMessageBox.warning(
             self,
-            "⚠️ Script Not Found",
+            "Script Not Found",
             f"The script <code>{script_name}</code> could not be found at:\n\n"
             f"<code>{script_path}</code>\n\n"
-            f"Please update your paths in ⚙️ Settings.",
+            f"Please update your paths in Settings.",
         )
 
     # installed_tab bindings

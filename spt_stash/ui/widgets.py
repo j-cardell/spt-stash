@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SPT Stash — small reusable UI widgets."""
 
+import math
 import urllib.request
 from pathlib import Path
 
@@ -119,19 +120,86 @@ class SearchField(QWidget):
         return self.line_edit.text()
 
 
-def _search_pixmap():
-    """Render a small magnifying-glass icon as QPixmap."""
-    size = 14
+def _nav_pixmap(name, size=16, color="#7f8698"):
+    """Render small monochrome nav/action icons as QPixmap."""
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
     painter = QPainter(pix)
     painter.setRenderHint(QPainter.Antialiasing)
-    painter.setPen(QPen(QColor("#7f8698"), 1.8))
+    pen = QPen(QColor(color), 1.5)
+    painter.setPen(pen)
     painter.setBrush(Qt.NoBrush)
-    painter.drawEllipse(QRectF(1.5, 1.5, 8, 8))
-    painter.drawLine(int(size - 4), int(size - 4), size - 1, size - 1)
+
+    if name == "installed":
+        # stacked box / archive shape
+        painter.drawRect(2, 5, 12, 8)
+        painter.drawLine(5, 5, 5, 2)
+        painter.drawLine(11, 5, 11, 2)
+        painter.drawLine(5, 2, 11, 2)
+    elif name == "presets":
+        # tag shape
+        path = QPainterPath()
+        path.moveTo(4, 2)
+        path.lineTo(11, 2)
+        path.lineTo(14, 8)
+        path.lineTo(8, 14)
+        path.lineTo(4, 10)
+        path.closeSubpath()
+        painter.drawPath(path)
+        painter.drawEllipse(7, 5, 2, 2)
+    elif name == "browse":
+        # magnifying glass
+        painter.drawEllipse(QRectF(1.5, 1.5, 9, 9))
+        painter.drawLine(int(size - 4), int(size - 4), size - 1, size - 1)
+    elif name == "install":
+        # downward arrow into tray
+        painter.drawLine(8, 2, 8, 11)
+        painter.drawLine(5, 8, 8, 11)
+        painter.drawLine(11, 8, 8, 11)
+        painter.drawRect(2, 12, 12, 2)
+    elif name == "performance":
+        # lightning bolt
+        path = QPainterPath()
+        path.moveTo(9, 1)
+        path.lineTo(5, 8)
+        path.lineTo(9, 8)
+        path.lineTo(7, 15)
+        path.lineTo(13, 6)
+        path.lineTo(9, 6)
+        path.closeSubpath()
+        painter.drawPath(path)
+    elif name == "settings":
+        # gear-ish circle with teeth dots
+        painter.drawEllipse(QRectF(4, 4, 8, 8))
+        cx, cy = size / 2, size / 2
+        for angle in range(0, 360, 45):
+            x = cx + 6.5 * math.cos(math.radians(angle))
+            y = cy + 6.5 * math.sin(math.radians(angle))
+            painter.drawEllipse(QRectF(x - 1, y - 1, 2, 2))
+    elif name == "folder":
+        painter.drawRect(2, 5, 12, 9)
+        painter.drawLine(2, 7, 14, 7)
+        painter.drawLine(5, 5, 7, 3)
+        painter.drawLine(7, 3, 10, 3)
+    elif name == "external":
+        painter.drawRect(2, 2, 10, 10)
+        painter.drawLine(7, 7, 14, 0)
+        painter.drawLine(10, 0, 14, 0)
+        painter.drawLine(14, 4, 14, 0)
+    elif name == "trash":
+        painter.drawRect(4, 5, 8, 10)
+        painter.drawLine(3, 5, 13, 5)
+        painter.drawLine(6, 3, 10, 3)
+        painter.drawLine(6, 7, 6, 13)
+        painter.drawLine(10, 7, 10, 13)
+
     painter.end()
     return pix
+
+
+def _search_pixmap():
+    """Render a small magnifying-glass icon as QPixmap."""
+    return _nav_pixmap("browse", size=14, color="#7f8698")
 
 
 class CheckBox(QWidget):
@@ -314,9 +382,9 @@ class ModItemDelegate(QStyledItemDelegate):
         end_cnt = mod.get("endorsements", 0)
         stats_str = ""
         if dl_cnt:
-            stats_str += f"⬇ {dl_cnt:,} "
+            stats_str += f" {dl_cnt:,} "
         if end_cnt:
-            stats_str += f"★ {end_cnt}"
+            stats_str += f" {end_cnt}"
 
         if stats_str:
             painter.setFont(QFont("Ubuntu", 9, QFont.Bold))

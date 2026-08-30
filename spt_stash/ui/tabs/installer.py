@@ -3,7 +3,8 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...staging.workers import ModInstallerThread
+from ..widgets import _nav_pixmap
 
 
 def setup_installer_tab(self):
@@ -29,7 +31,7 @@ def setup_installer_tab(self):
     dropzone.setStyleSheet("""
         QFrame {
             background-color: #14161d;
-            border: 2px dashed #2e3346;
+            border: 2px dashed #232733;
             border-radius: 12px;
             padding: 40px 24px;
         }
@@ -42,8 +44,9 @@ def setup_installer_tab(self):
     d_layout.setAlignment(Qt.AlignCenter)
     d_layout.setSpacing(12)
 
-    icon_lbl = QLabel("📦")
-    icon_lbl.setStyleSheet("font-size: 42px; background: transparent;")
+    icon_lbl = QLabel()
+    icon_lbl.setPixmap(_nav_pixmap("install", size=48, color="#7c8cff"))
+    icon_lbl.setStyleSheet("background: transparent;")
     icon_lbl.setAlignment(Qt.AlignCenter)
     d_layout.addWidget(icon_lbl)
 
@@ -61,7 +64,9 @@ def setup_installer_tab(self):
     info_lbl.setWordWrap(True)
     d_layout.addWidget(info_lbl)
 
-    btn_select_file = QPushButton("📁 Choose File...")
+    btn_select_file = QPushButton("Choose File...")
+    btn_select_file.setIcon(QIcon(_nav_pixmap("folder", size=14, color="#0f1016")))
+    btn_select_file.setIconSize(QSize(14, 14))
     btn_select_file.setProperty("role", "primary")
     btn_select_file.setProperty("size", "lg")
     btn_select_file.setFixedWidth(200)
@@ -91,11 +96,11 @@ def open_file_installer(self):
 def on_mod_installed(self, success, message):
     if success:
         QMessageBox.information(self, "Success", message)
-        self.lbl_install_status.setText("✅ " + message)
+        self.lbl_install_status.setText(message)
         self.load_installed_mods()
     else:
         QMessageBox.critical(self, "Error", message)
-        self.lbl_install_status.setText("❌ " + message)
+        self.lbl_install_status.setText(message)
 
 
 # ------------------ Linux Performance Tab ------------------

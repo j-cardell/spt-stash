@@ -5,8 +5,8 @@ import html
 import os
 import shutil
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -28,7 +28,7 @@ from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
-from ..widgets import ModItemDelegate, RemoteImageTextBrowser, SearchField
+from ..widgets import ModItemDelegate, RemoteImageTextBrowser, SearchField, _nav_pixmap
 
 
 def setup_browse_tab(self):
@@ -102,7 +102,9 @@ def setup_browse_tab(self):
     bot_btn_layout = QHBoxLayout()
     bot_btn_layout.setSpacing(8)
 
-    self.btn_download_mod = QPushButton("📥 Download & Install Mod")
+    self.btn_download_mod = QPushButton("Download & Install Mod")
+    self.btn_download_mod.setIcon(QIcon(_nav_pixmap("install", size=14, color="#4ade80")))
+    self.btn_download_mod.setIconSize(QSize(14, 14))
     self.btn_download_mod.setProperty("role", "success")
     self.btn_download_mod.setProperty("size", "lg")
     self.btn_download_mod.clicked.connect(self.start_mod_download)
@@ -110,13 +112,13 @@ def setup_browse_tab(self):
     bot_btn_layout.addWidget(self.btn_download_mod)
 
     self.btn_open_web = QPushButton("Open Page on sp-mod.com")
+    self.btn_open_web.setIcon(QIcon(_nav_pixmap("external", size=14, color="#7f8698")))
+    self.btn_open_web.setIconSize(QSize(14, 14))
     self.btn_open_web.setProperty("role", "ghost")
     self.btn_open_web.setProperty("size", "lg")
     self.btn_open_web.clicked.connect(self.open_mod_in_browser)
     self.btn_open_web.setEnabled(False)
     bot_btn_layout.addWidget(self.btn_open_web)
-
-    right_layout.addLayout(bot_btn_layout)
 
     splitter.addWidget(right_widget)
     splitter.setSizes([430, 570])
@@ -128,14 +130,18 @@ def setup_browse_tab(self):
 
 def fetch_remote_mods(self, force_refresh=False):
     self.list_remote.clear()
-    self.web_detail.setHtml("<h3>Loading catalog...</h3>")
+    self.web_detail.setHtml("<h3 style='color:#7f8698; text-align:center; margin-top:40px;'>Loading catalog...</h3>")
 
     self.rss_thread = RSSFetcherThread(self)
     self.rss_thread.force_refresh = force_refresh
-    self.rss_thread.progress.connect(lambda p: self.web_detail.setHtml(f"<h3>{p}</h3>"))
+    self.rss_thread.progress.connect(
+        lambda p: self.web_detail.setHtml(f"<h3 style='color:#7f8698; text-align:center; margin-top:40px;'>{p}</h3>")
+    )
     self.rss_thread.fetched.connect(self.on_remote_mods_fetched)
     self.rss_thread.error.connect(
-        lambda err: self.web_detail.setHtml(f"<h3 style='color:red;'>Error fetching catalog: {err}</h3>")
+        lambda err: self.web_detail.setHtml(
+            f"<h3 style='color:#f87171; text-align:center; margin-top:40px;'>Error fetching catalog: {err}</h3>"
+        )
     )
     self.rss_thread.start()
 
@@ -204,6 +210,16 @@ def filter_remote_mods(self):
         item.setData(Qt.UserRole, mod)
         self.list_remote.addItem(item)
 
+    # Reset detail pane to empty state when filter changes selection.
+    self.list_remote.clearSelection()
+    self.web_detail.setHtml("""
+        <div style='color:#7f8698; text-align:center; padding:48px 24px; font-size:14px;'>
+            <div style='font-size:28px; margin-bottom:12px;'></div>
+            <div style='color:#eceef3; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+            <div>Select a mod from the list to view details, dependencies, and install options.</div>
+        </div>
+    """)
+
 
 def render_mod_detail_html(self, mod):
     creator = html.escape(mod.get("creator", "Community"))
@@ -263,7 +279,7 @@ def render_mod_detail_html(self, mod):
     else:
         fika_badge = f"<span style='color:{WARNING};'>Compatibility Unknown</span>"
 
-    stats_html = f"⬇ {dl_cnt:,} downloads  •  ★ {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
+    stats_html = f" {dl_cnt:,} downloads  •   {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
 
     card_html = f"""
     <div style='background-color:{BG}; border:1px solid {BORDER}; border-radius:8px; padding:14px; margin-bottom:14px;'>
@@ -308,6 +324,13 @@ def on_remote_mod_selected(self):
     if not items:
         self.btn_open_web.setEnabled(False)
         self.btn_download_mod.setEnabled(False)
+        self.web_detail.setHtml("""
+        <div style='color:#7f8698; text-align:center; padding:48px 24px; font-size:14px;'>
+            <div style='font-size:28px; margin-bottom:12px;'></div>
+            <div style='color:#eceef3; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+            <div>Select a mod from the list to view details, dependencies, and install options.</div>
+        </div>
+        """)
         return
 
     mod = items[0].data(Qt.UserRole)
@@ -323,13 +346,13 @@ def on_remote_mod_selected(self):
             QPushButton:hover { background-color: rgba(248, 113, 113, 0.16); border-color: rgba(248, 113, 113, 0.35); }
         """)
     elif status == "STAGED_DISABLED":
-        self.btn_download_mod.setText("▶ Enable Installed Mod")
+        self.btn_download_mod.setText(" Enable Installed Mod")
         self.btn_download_mod.setStyleSheet("""
             QPushButton { background-color: rgba(74, 222, 128, 0.08); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.18); font-size: 13px; font-weight: bold; border-radius: 6px; }
             QPushButton:hover { background-color: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.30); }
         """)
     else:
-        self.btn_download_mod.setText("⬇ Download && Install Mod")
+        self.btn_download_mod.setText(" Download && Install Mod")
         self.btn_download_mod.setStyleSheet("""
             QPushButton { background-color: rgba(74, 222, 128, 0.08); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.18); font-size: 13px; font-weight: bold; border-radius: 6px; }
             QPushButton:hover { background-color: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.30); }
@@ -388,7 +411,7 @@ def start_mod_download(self):
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
-        QMessageBox.information(self, "Mod Enabled", f"⚡ <b>{mod['title']}</b> is now enabled in your game!")
+        QMessageBox.information(self, "Mod Enabled", f" <b>{mod['title']}</b> is now enabled in your game!")
         return
 
     if "dependencies" not in mod or mod["dependencies"] is None or not mod["dependencies"]:
@@ -412,7 +435,7 @@ def start_mod_download(self):
         )
         if reply == QMessageBox.Cancel:
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download && Install Mod")
+            self.btn_download_mod.setText(" Download && Install Mod")
             return
         if reply == QMessageBox.Yes:
             for dep in staged_disabled_deps:
@@ -447,7 +470,7 @@ def start_mod_download(self):
         )
         if reply == QMessageBox.Cancel:
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download && Install Mod")
+            self.btn_download_mod.setText(" Download && Install Mod")
             return
         if reply == QMessageBox.Yes:
             self.start_dependency_queue_download(missing_deps, mod)
@@ -524,7 +547,7 @@ def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
             self, "Dependency Download Error", f"Failed to download dependency '{dep_mod['title']}': {message}"
         )
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText(" Download && Install Mod")
         return
 
     stage_dialog = StageInstallDialog(archive_path, dep_mod, parent=self)
@@ -540,7 +563,7 @@ def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
             except Exception:
                 pass
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText(" Download && Install Mod")
         self.dep_queue = []
         self.target_mod_afterdeps = None
 
@@ -555,7 +578,7 @@ def on_dependency_installed(self, success, message, archive_path):
     if not success:
         QMessageBox.critical(self, "Dependency Installation Error", f"Failed to install dependency: {message}")
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText(" Download && Install Mod")
         return
 
     self.load_installed_mods()
@@ -564,7 +587,7 @@ def on_dependency_installed(self, success, message, archive_path):
 
 def on_mod_downloaded(self, success, message, archive_path, mod_info):
     self.btn_download_mod.setEnabled(True)
-    self.btn_download_mod.setText("⬇️ Download && Install Mod")
+    self.btn_download_mod.setText(" Download && Install Mod")
 
     if not success:
         QMessageBox.critical(self, "Download Error", f"Failed to download mod: {message}")

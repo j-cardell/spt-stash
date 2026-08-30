@@ -3,6 +3,8 @@
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -22,7 +24,7 @@ from ...system.hardware import (
     detect_cpu_core_allocation,
     detect_gpu_hardware,
 )
-from ..widgets import ToggleSwitch
+from ..widgets import ToggleSwitch, _nav_pixmap
 
 
 def setup_performance_tab(self):
@@ -35,7 +37,7 @@ def setup_performance_tab(self):
     cpu_info = detect_cpu_core_allocation()
     gpu_info = detect_gpu_hardware()
 
-    # ── Top Header ──────────────────────────────────────────────────────
+    #  Top Header
     top_header = QHBoxLayout()
     header_v = QVBoxLayout()
     lbl_title = QLabel("Linux Performance & Game Launch Tuning")
@@ -49,33 +51,33 @@ def setup_performance_tab(self):
     top_header.addLayout(header_v)
     layout.addLayout(top_header)
 
-    # ── Hardware Detection Banner ───────────────────────────────────────
+    #  Hardware Detection Banner
     hw_banner = QFrame()
     hw_banner.setObjectName("hwBanner")
     hw_layout = QHBoxLayout(hw_banner)
     hw_layout.setContentsMargins(16, 12, 16, 12)
     hw_layout.setSpacing(16)
 
-    lbl_gpu = QLabel(f"🎮 <b>GPU:</b> {gpu_info['vendor']} ({gpu_info['name']})")
+    lbl_gpu = QLabel(f"<b>GPU:</b> {gpu_info['vendor']} ({gpu_info['name']})")
     lbl_gpu.setStyleSheet("font-size: 12.5px; color: #eceef3;")
     hw_layout.addWidget(lbl_gpu)
 
-    lbl_cpu = QLabel(f"🧠 <b>CPU:</b> {cpu_info['model_name']} ({cpu_info['threads']} Threads)")
+    cpu_info = detect_cpu_core_allocation()
+    lbl_cpu = QLabel(f"<b>CPU:</b> {cpu_info['model_name']} ({cpu_info['threads']} Threads)")
     lbl_cpu.setStyleSheet("font-size: 12.5px; color: #eceef3;")
     hw_layout.addWidget(lbl_cpu)
 
-    hw_layout.addStretch()
-
+    deps = audit_system_dependencies()
     lbl_deps = QLabel(
-        f"<b>MangoHud:</b> {'🟢 Ready' if deps['mangohud'] else '⚠️ Missing'} &nbsp;|&nbsp; "
-        f"<b>GameMode:</b> {'🟢 Ready' if deps['gamemode'] else '⚠️ Missing'}"
+        f"<b>MangoHud:</b> {'Ready' if deps['mangohud'] else 'Missing'} &nbsp;|&nbsp; "
+        f"<b>GameMode:</b> {'Ready' if deps['gamemode'] else 'Missing'}"
     )
     lbl_deps.setStyleSheet("font-size: 12px; color: #7f8698;")
     hw_layout.addWidget(lbl_deps)
 
     layout.addWidget(hw_banner)
 
-    # ── Grid of Performance Cards ───────────────────────────────────────
+    #  Grid of Performance Cards
     grid = QGridLayout()
     grid.setSpacing(12)
 
@@ -170,7 +172,9 @@ def setup_performance_tab(self):
     self.txt_client_cores.setFixedWidth(75)
     cores_box.addWidget(self.txt_client_cores)
 
-    btn_auto_cpu = QPushButton("🤖 Auto-Detect")
+    btn_auto_cpu = QPushButton("Auto-Detect")
+    btn_auto_cpu.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#7f8698")))
+    btn_auto_cpu.setIconSize(QSize(14, 14))
     btn_auto_cpu.setProperty("role", "ghost")
     btn_auto_cpu.setProperty("size", "sm")
     btn_auto_cpu.clicked.connect(lambda: self.auto_detect_cpu_allocation_ui())
@@ -215,7 +219,9 @@ def setup_performance_tab(self):
     layout.addStretch()
 
     # Apply Button
-    btn_apply = QPushButton("⚡ Save && Apply to launcher.sh && server.sh")
+    btn_apply = QPushButton("Save && Apply to launcher.sh && server.sh")
+    btn_apply.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#0f1016")))
+    btn_apply.setIconSize(QSize(14, 14))
     btn_apply.setProperty("role", "primary")
     btn_apply.setProperty("size", "lg")
     btn_apply.setFixedHeight(40)
@@ -364,11 +370,11 @@ exec ${{TASKSET_CMD}} ./SPT.Server.Linux > "${{ROOT_PATH}}/user/logs/server-dire
             print(f"Error updating server.sh: {e}")
 
     if hasattr(self, "toast"):
-        self.toast.success("⚡ Performance settings applied to launcher.sh & server.sh!")
+        self.toast.success("Performance settings applied to launcher.sh & server.sh!")
     else:
         QMessageBox.information(
             self,
-            "⚡ Performance Settings Applied",
+            "Performance Settings Applied",
             "Performance tuning options have been saved and applied to launcher.sh and server.sh!",
         )
 
@@ -378,13 +384,13 @@ def auto_detect_cpu_allocation_ui(self):
     self.txt_server_cores.setText(info["server_cores"])
     self.txt_client_cores.setText(info["client_cores"])
     self.lbl_cpu_detected_info.setText(
-        f"<small style='color: #4ade80;'>🤖 Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads).</small>"
+        f"<small style='color: #4ade80;'>Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads).</small>"
     )
     if hasattr(self, "toast"):
-        self.toast.success(f"🤖 CPU Auto-Detected: {info['threads']} Threads")
+        self.toast.success(f"CPU Auto-Detected: {info['threads']} Threads")
     else:
         QMessageBox.information(
             self,
-            "🤖 CPU Allocation Auto-Detected",
+            "CPU Allocation Auto-Detected",
             f"Detected CPU: {info['model_name']}\nTotal Threads: {info['threads']}\n\nRecommended Server Cores: {info['server_cores']}\nRecommended Client Cores: {info['client_cores']}\n\nValues populated into Settings!",
         )

@@ -8,8 +8,8 @@ import subprocess
 import urllib.parse
 import urllib.request
 
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QColor, QCursor, QDesktopServices
+from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtGui import QColor, QCursor, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -34,7 +34,7 @@ from ...staging.links import create_relative_symlink, purge_mod_files_and_symlin
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
 from ...version import is_version_newer
-from ..widgets import CheckBox, SearchField, ToggleSwitch
+from ..widgets import CheckBox, SearchField, ToggleSwitch, _nav_pixmap
 
 
 def setup_installed_tab(self):
@@ -45,7 +45,7 @@ def setup_installed_tab(self):
     self.current_filter_mode = "all"
     self.selected_mod_keys = set()
 
-    # ── Top Row: Header & Action Tools ──────────────────────────────────
+    #  Top Row: Header & Action Tools
     top_row = QHBoxLayout()
     top_row.setSpacing(10)
 
@@ -73,7 +73,7 @@ def setup_installed_tab(self):
 
     layout.addLayout(top_row)
 
-    # ── Toolbar: Search + Filter Chips + Import/Export ──────────────────
+    #  Toolbar: Search + Filter Chips + Import/Export
     toolbar = QHBoxLayout()
     toolbar.setSpacing(8)
 
@@ -142,7 +142,7 @@ def setup_installed_tab(self):
 
     layout.addLayout(toolbar)
 
-    # ── Table Widget ────────────────────────────────────────────────────
+    #  Table Widget
     self.table_mods = QTableWidget()
     self.table_mods.setObjectName("tableMods")
     self.table_mods.setColumnCount(7)
@@ -169,7 +169,7 @@ def setup_installed_tab(self):
     self.table_mods.customContextMenuRequested.connect(lambda pos: self.show_installed_table_context_menu(pos))
     layout.addWidget(self.table_mods)
 
-    # ── Bulk Actions Bar ────────────────────────────────────────────────
+    #  Bulk Actions Bar
     bulk_bar = QFrame()
     bulk_bar.setObjectName("bulkBar")
     bulk_layout = QHBoxLayout(bulk_bar)
@@ -489,19 +489,25 @@ def render_installed_mods(self, mods):
         actions_layout.setSpacing(4)
         actions_layout.setAlignment(Qt.AlignCenter)
 
-        btn_folder = QPushButton("📁")
+        btn_folder = QPushButton()
+        btn_folder.setIcon(QIcon(_nav_pixmap("folder", size=14, color="#7f8698")))
+        btn_folder.setIconSize(QSize(14, 14))
         btn_folder.setToolTip("Open mod folder in File Manager")
         btn_folder.setProperty("iconBtn", "true")
         btn_folder.clicked.connect(lambda _, m=mod: self.open_mod_folder(m))
         actions_layout.addWidget(btn_folder)
 
-        btn_web = QPushButton("↗")
+        btn_web = QPushButton()
+        btn_web.setIcon(QIcon(_nav_pixmap("external", size=14, color="#7f8698")))
+        btn_web.setIconSize(QSize(14, 14))
         btn_web.setToolTip("View on sp-mod.com Forge")
         btn_web.setProperty("iconBtn", "true")
         btn_web.clicked.connect(lambda _, m=mod: self.open_mod_web(m))
         actions_layout.addWidget(btn_web)
 
-        btn_del = QPushButton("🗑")
+        btn_del = QPushButton()
+        btn_del.setIcon(QIcon(_nav_pixmap("trash", size=14, color="#f87171")))
+        btn_del.setIconSize(QSize(14, 14))
         btn_del.setToolTip("Delete mod from Stash")
         btn_del.setProperty("iconBtn", "true")
         btn_del.setProperty("danger", "true")
@@ -584,9 +590,9 @@ def bulk_enable_selected(self):
 
     self.load_installed_mods()
     if hasattr(self, "toast"):
-        self.toast.success(f"▶ Enabled {enabled_count} mod package(s)!")
+        self.toast.success(f" Enabled {enabled_count} mod package(s)!")
     else:
-        QMessageBox.information(self, "Bulk Enable Complete", f"▶ Enabled <b>{enabled_count}</b> mod package(s)!")
+        QMessageBox.information(self, "Bulk Enable Complete", f" Enabled <b>{enabled_count}</b> mod package(s)!")
 
 
 def bulk_disable_selected(self):
@@ -642,9 +648,9 @@ def bulk_delete_selected(self):
         self.selected_mod_keys = set()
         self.load_installed_mods()
         if hasattr(self, "toast"):
-            self.toast.error(f"🗑 Deleted {len(selected)} mod package(s)!")
+            self.toast.error(f" Deleted {len(selected)} mod package(s)!")
         else:
-            QMessageBox.information(self, "Bulk Delete Complete", f"🗑 Deleted <b>{len(selected)}</b> mod package(s)!")
+            QMessageBox.information(self, "Bulk Delete Complete", f" Deleted <b>{len(selected)}</b> mod package(s)!")
 
 
 def open_author_profile(self, mod):
@@ -718,8 +724,8 @@ def show_installed_table_context_menu(self, pos):
         QMenu::separator { height: 1px; background-color: #232733; margin: 4px 0px; }
     """)
 
-    act_open_folder = menu.addAction("📁 Open Folder in File Manager")
-    act_open_web = menu.addAction("🔗 Open Web Page on sp-mod.com")
+    act_open_folder = menu.addAction(" Open Folder in File Manager")
+    act_open_web = menu.addAction(" Open Web Page on sp-mod.com")
 
     meta = load_mod_meta(mod["staged_path"]) or {}
     author_str = meta.get("author")
@@ -730,19 +736,19 @@ def show_installed_table_context_menu(self, pos):
 
     act_author_search = None
     if author_str and author_str != "Community":
-        act_author_search = menu.addAction(f"👤 Open {author_str}'s Profile on sp-mod.com")
+        act_author_search = menu.addAction(f" Open {author_str}'s Profile on sp-mod.com")
 
     menu.addSeparator()
 
     is_disabled = mod.get("disabled", False)
-    act_toggle = menu.addAction("⚡ Enable Mod" if is_disabled else "⏸ Disable Mod")
-    act_check_upd = menu.addAction("🔄 Check for Updates")
+    act_toggle = menu.addAction(" Enable Mod" if is_disabled else "⏸ Disable Mod")
+    act_check_upd = menu.addAction(" Check for Updates")
     menu.addSeparator()
 
-    act_copy_path = menu.addAction("📋 Copy Path to Clipboard")
+    act_copy_path = menu.addAction(" Copy Path to Clipboard")
     menu.addSeparator()
 
-    act_delete = menu.addAction("🗑 Delete Mod Package")
+    act_delete = menu.addAction(" Delete Mod Package")
 
     global_pos = self.table_mods.viewport().mapToGlobal(pos)
     action = menu.exec(global_pos)
@@ -764,9 +770,9 @@ def show_installed_table_context_menu(self, pos):
         if staged_p:
             QApplication.clipboard().setText(str(staged_p))
             if hasattr(self, "toast"):
-                self.toast.info("📋 Path copied to clipboard")
+                self.toast.info(" Path copied to clipboard")
             else:
-                QMessageBox.information(self, "Copied Path", f"📋 Path copied to clipboard:\n\n{staged_p}")
+                QMessageBox.information(self, "Copied Path", f" Path copied to clipboard:\n\n{staged_p}")
     elif action == act_delete:
         self.delete_mod(mod)
 
@@ -798,12 +804,12 @@ def check_installed_mod_updates(self, *args):
 
     if not updates:
         if hasattr(self, "toast"):
-            self.toast.success("✅ All installed mods are up to date!")
+            self.toast.success(" All installed mods are up to date!")
         else:
             QMessageBox.information(
                 self,
                 "Up to Date!",
-                "✅ <b>All installed mods are up to date!</b><br>No newer versions were found on sp-mod.com.",
+                " <b>All installed mods are up to date!</b><br>No newer versions were found on sp-mod.com.",
             )
         return
 
@@ -816,7 +822,7 @@ def check_installed_mod_updates(self, *args):
     reply = QMessageBox.question(
         self,
         "Mod Updates Available",
-        f"🎉 <b>{len(updates)} mod update(s) available</b>:\n\n"
+        f" <b>{len(updates)} mod update(s) available</b>:\n\n"
         f"{upd_list}{extra}\n\n"
         f"Would you like to download and install all available updates now?",
         QMessageBox.Yes | QMessageBox.No,
@@ -909,7 +915,7 @@ def toggle_mod(self, mod):
                 create_relative_symlink(item, live_link)
 
             if hasattr(self, "toast"):
-                self.toast.success(f"⚡ Enabled {mod['name']}")
+                self.toast.success(f" Enabled {mod['name']}")
         else:
             client_items = mod.get("client_items", [])
             server_items = mod.get("server_items", [])
@@ -945,7 +951,7 @@ def audit_installed_dependencies(self):
         return
 
     progress = QProgressDialog(
-        "🔍 Auditing dependencies for installed mods...", "Cancel", 0, len(self.all_installed_mods), self
+        " Auditing dependencies for installed mods...", "Cancel", 0, len(self.all_installed_mods), self
     )
     progress.setWindowModality(Qt.WindowModal)
     progress.show()
@@ -956,7 +962,7 @@ def audit_installed_dependencies(self):
         if progress.wasCanceled():
             break
         progress.setValue(i)
-        progress.setLabelText(f"🔍 Auditing ({i + 1}/{len(self.all_installed_mods)}): {mod['name']}...")
+        progress.setLabelText(f" Auditing ({i + 1}/{len(self.all_installed_mods)}): {mod['name']}...")
         QApplication.processEvents()
 
         matched = next(
@@ -978,10 +984,10 @@ def audit_installed_dependencies(self):
 
     if not issues:
         if hasattr(self, "toast"):
-            self.toast.success("✅ All dependencies satisfied!")
+            self.toast.success(" All dependencies satisfied!")
         else:
             QMessageBox.information(
-                self, "Audit Complete", "✅ All installed mods have their required dependencies installed and enabled!"
+                self, "Audit Complete", " All installed mods have their required dependencies installed and enabled!"
             )
         return
 
@@ -1019,9 +1025,9 @@ def show_audit_issues_dialog(self, issues):
 
         self.load_installed_mods()
         if hasattr(self, "toast"):
-            self.toast.success("✅ Dependency auto-fix process completed!")
+            self.toast.success(" Dependency auto-fix process completed!")
         else:
-            QMessageBox.information(self, "Audit Auto-Fix", "✅ Dependency auto-fix process completed!")
+            QMessageBox.information(self, "Audit Auto-Fix", " Dependency auto-fix process completed!")
 
 
 def delete_mod(self, mod):
@@ -1037,6 +1043,6 @@ def delete_mod(self, mod):
             self.selected_mod_keys.discard(mod["name"])
             self.load_installed_mods()
             if hasattr(self, "toast"):
-                self.toast.error(f"🗑 Deleted '{mod['name']}'")
+                self.toast.error(f" Deleted '{mod['name']}'")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to delete mod: {e}")

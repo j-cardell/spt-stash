@@ -7,8 +7,8 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtCore import QSize, QUrl
+from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -29,6 +29,7 @@ from ..config import load_config, save_config
 from ..paths import DOWNLOADS_CACHE_DIR
 from ..staging.links import create_relative_symlink
 from ..system.hardware import find_umu_run, find_wine_prefix, get_available_proton_versions
+from .widgets import _nav_pixmap
 
 
 class SettingsDialog(QDialog):
@@ -133,13 +134,17 @@ class SettingsDialog(QDialog):
         btn_box = QHBoxLayout()
         btn_box.setSpacing(8)
 
-        btn_desktop = QPushButton("📌 Create Desktop Shortcut")
+        btn_desktop = QPushButton("Create Desktop Shortcut")
+        btn_desktop.setIcon(QIcon(_nav_pixmap("install", size=14, color="#7f8698")))
+        btn_desktop.setIconSize(QSize(14, 14))
         btn_desktop.setProperty("role", "ghost")
         btn_desktop.setProperty("size", "sm")
         btn_desktop.clicked.connect(self.create_desktop_shortcut)
         btn_box.addWidget(btn_desktop)
 
-        btn_greed = QPushButton("🛠️ Launch Greed.exe (SVM)")
+        btn_greed = QPushButton("Launch Greed.exe (SVM)")
+        btn_greed.setIcon(QIcon(_nav_pixmap("performance", size=14, color="#7f8698")))
+        btn_greed.setIconSize(QSize(14, 14))
         btn_greed.setProperty("role", "ghost")
         btn_greed.setProperty("size", "sm")
         btn_greed.setToolTip(
@@ -156,7 +161,9 @@ class SettingsDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_box.addWidget(btn_cancel)
 
-        btn_save = QPushButton("💾 Save Settings")
+        btn_save = QPushButton("Save Settings")
+        btn_save.setIcon(QIcon(_nav_pixmap("installed", size=14, color="#0f1016")))
+        btn_save.setIconSize(QSize(14, 14))
         btn_save.setProperty("role", "primary")
         btn_save.setProperty("size", "sm")
         btn_save.clicked.connect(self.save_settings)
@@ -172,7 +179,7 @@ class SettingsDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Desktop Shortcut Created",
-                "📌 <b>Desktop Shortcut & Application Launcher Created!</b><br><br>You can now "
+                "Desktop Shortcut & Application Launcher Created!</br></br>You can now "
                 "launch <b>SPT Stash</b> directly from your Linux Desktop or Application Menu.",
             )
         except Exception as e:
@@ -213,7 +220,7 @@ class SettingsDialog(QDialog):
             reply = QMessageBox.question(
                 self,
                 "SVM Not Installed",
-                "⚠️ <b>Greed.exe</b> was not found in your SPT installation.\n\n"
+                "Greed.exe was not found in your SPT installation.\n\n"
                 "Would you like to open the <b>Browse sp-mod.com (Forge)</b> tab to download <b>Server Value Modifier (SVM)</b>?",
                 QMessageBox.Yes | QMessageBox.No,
             )
@@ -261,14 +268,14 @@ class SettingsDialog(QDialog):
             parent = self.parent()
             runner_name = selected_runner if selected_runner not in ("auto", "wine") else (proton_path.name if proton_path else "Proton")
             if parent and hasattr(parent, "toast"):
-                parent.toast.success(f"🚀 Launching Greed.exe (SVM) [{runner_name}]...")
+                parent.toast.success(f"Launching Greed.exe (SVM) [{runner_name}]...")
             elif parent and hasattr(parent, "show_toast"):
-                parent.show_toast(f"🚀 Launching Greed.exe (SVM) [{runner_name}]...")
+                parent.show_toast(f"Launching Greed.exe (SVM) [{runner_name}]...")
             else:
                 QMessageBox.information(
                     self,
                     "Greed.exe Launched",
-                    f"🚀 <b>Greed.exe</b> launched under SPT root:\n\n<code>{spt_root}</code>",
+                    f"<b>Greed.exe</b> launched under SPT root:\n\n<code>{spt_root}</code>",
                 )
         except Exception as e:
             QMessageBox.critical(self, "Error Launching Greed.exe", f"Failed to launch Greed.exe: {e}")
@@ -306,7 +313,7 @@ class SettingsDialog(QDialog):
         if not spt or not staged or not server or not launcher:
             QMessageBox.warning(
                 self,
-                "⚠️ Missing Required Paths",
+                "Missing Required Paths",
                 "<b>All path settings fields are required.</b><br><br>Please ensure no path "
                 "field is left blank before saving settings.",
             )
@@ -354,7 +361,7 @@ class StageInstallDialog(QDialog):
             missing = [d for d in deps if not d.get("installed")]
             if missing:
                 dep_box = QLabel(
-                    f"⚠️ <b>Warning:</b> This mod requires <b>{len(missing)} missing dependency mod(s)</b>: "
+                    f"<b>Warning:</b> This mod requires <b>{len(missing)} missing dependency mod(s)</b>: "
                     + ", ".join(m["title"] for m in missing)
                 )
                 dep_box.setStyleSheet(
@@ -364,7 +371,7 @@ class StageInstallDialog(QDialog):
                 layout.addWidget(dep_box)
             else:
                 dep_box = QLabel(
-                    f"✅ All <b>{len(deps)} required dependency mod(s)</b> are installed and enabled in your game."
+                    f"All <b>{len(deps)} required dependency mod(s)</b> are installed and enabled in your game."
                 )
                 dep_box.setStyleSheet(
                     "background-color: #14161d; border: 1px solid #4ade80; border-radius: 6px; "
@@ -390,7 +397,9 @@ class StageInstallDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
 
-        btn_open_folder = QPushButton("📁 Downloads Cache Folder")
+        btn_open_folder = QPushButton("Downloads Cache Folder")
+        btn_open_folder.setIcon(QIcon(_nav_pixmap("folder", size=14, color="#7f8698")))
+        btn_open_folder.setIconSize(QSize(14, 14))
         btn_open_folder.setProperty("role", "ghost")
         btn_open_folder.setProperty("size", "sm")
         btn_open_folder.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(DOWNLOADS_CACHE_DIR))))
@@ -403,7 +412,9 @@ class StageInstallDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
 
-        btn_install = QPushButton("🚀 Install to SPT Now")
+        btn_install = QPushButton("Install to SPT Now")
+        btn_install.setIcon(QIcon(_nav_pixmap("install", size=14, color="#0f1016")))
+        btn_install.setIconSize(QSize(14, 14))
         btn_install.setProperty("role", "primary")
         btn_install.setProperty("size", "sm")
         btn_install.clicked.connect(self.accept)
@@ -455,7 +466,7 @@ class SavePresetDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
-        title_lbl = QLabel("🎒 Create New Stash Preset")
+        title_lbl = QLabel("Create New Stash Preset")
         title_lbl.setFont(QFont("Ubuntu", 14, QFont.Bold))
         layout.addWidget(title_lbl)
 
@@ -483,7 +494,9 @@ class SavePresetDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancel)
 
-        btn_save = QPushButton("💾 Save Preset")
+        btn_save = QPushButton("Save Preset")
+        btn_save.setIcon(QIcon(_nav_pixmap("installed", size=14, color="#0f1016")))
+        btn_save.setIconSize(QSize(14, 14))
         btn_save.setProperty("role", "primary")
         btn_save.setProperty("size", "sm")
         btn_save.clicked.connect(self.accept)

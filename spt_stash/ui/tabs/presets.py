@@ -7,7 +7,8 @@ import re
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -37,6 +38,7 @@ from ...paths import (
 from ...staging.links import create_relative_symlink
 from ...staging.metadata import load_mod_meta
 from ..dialogs import SavePresetDialog
+from ..widgets import _nav_pixmap
 
 
 def setup_presets_tab(self):
@@ -44,7 +46,7 @@ def setup_presets_tab(self):
     layout.setContentsMargins(20, 16, 20, 16)
     layout.setSpacing(12)
 
-    # ── Top Row ─────────────────────────────────────────────────────────
+    #  Top Row
     top_row = QHBoxLayout()
     top_row.setSpacing(10)
 
@@ -79,7 +81,7 @@ def setup_presets_tab(self):
 
     layout.addLayout(top_row)
 
-    # ── Splitter: Presets List & Preview Detail ─────────────────────────
+    #  Splitter: Presets List & Preview Detail
     splitter = QSplitter(Qt.Horizontal)
     splitter.setStyleSheet("QSplitter::handle { background-color: #232733; width: 1px; }")
 
@@ -103,11 +105,13 @@ def setup_presets_tab(self):
     bot_p_layout = QHBoxLayout()
     bot_p_layout.setSpacing(8)
 
-    self.btn_apply_preset = QPushButton("▶ Apply Preset to Game")
+    self.btn_apply_preset = QPushButton(" Apply Preset to Game")
     self.btn_apply_preset.setProperty("role", "success")
     self.btn_apply_preset.setProperty("size", "lg")
     self.btn_apply_preset.clicked.connect(self.apply_selected_preset)
     self.btn_apply_preset.setEnabled(False)
+    self.btn_apply_preset.setIcon(QIcon(_nav_pixmap("install", size=14, color="#4ade80")))
+    self.btn_apply_preset.setIconSize(QSize(14, 14))
     bot_p_layout.addWidget(self.btn_apply_preset)
 
     self.btn_export_preset = QPushButton("Export HTML")
@@ -122,6 +126,8 @@ def setup_presets_tab(self):
     self.btn_delete_preset.setProperty("size", "lg")
     self.btn_delete_preset.clicked.connect(self.delete_selected_preset)
     self.btn_delete_preset.setEnabled(False)
+    self.btn_delete_preset.setIcon(QIcon(_nav_pixmap("trash", size=14, color="#f87171")))
+    self.btn_delete_preset.setIconSize(QSize(14, 14))
     bot_p_layout.addWidget(self.btn_delete_preset)
 
     right_layout.addLayout(bot_p_layout)
@@ -167,25 +173,26 @@ def load_presets_list(self):
         self.list_presets.addItem(item)
 
     self.list_presets.setStyleSheet("""
-        QListWidget {
-            background-color: #0f1016;
-            border: none;
-            border-right: 1px solid #232733;
-            outline: none;
-        }
-        QListWidget::item {
-            color: #eceef3;
-            padding: 12px 14px;
-            border-bottom: 1px solid #232733;
-        }
-        QListWidget::item:hover {
-            background-color: #14161d;
-        }
-        QListWidget::item:selected {
-            background-color: #1a1d27;
-            border-left: 2px solid #7c8cff;
-            padding-left: 12px;
-        }
+    QListWidget {
+        background-color: #0f1016;
+        border: none;
+        border-right: 1px solid #232733;
+        outline: none;
+    }
+    QListWidget::item {
+        color: #eceef3;
+        padding: 12px 14px;
+        border-bottom: 1px solid #232733;
+        border-left: 3px solid transparent;
+    }
+    QListWidget::item:hover {
+        background-color: #14161d;
+    }
+    QListWidget::item:selected {
+        background-color: #1a1d27;
+        border-left: 3px solid #7c8cff;
+        padding-left: 11px;
+    }
     """)
 
 
@@ -272,11 +279,11 @@ def on_preset_selected(self):
                 is_staged = st == "STAGED_DISABLED" or is_enabled
 
         if is_enabled:
-            st_badge = "<span style='color:#4ade80; font-weight:600;'>🟢 Enabled</span>"
+            st_badge = "<span style='color:#4ade80; font-weight:600;'> Enabled</span>"
         elif is_staged:
-            st_badge = "<span style='color:#fbbf24; font-weight:600;'>🟡 Disabled in Stash</span>"
+            st_badge = "<span style='color:#fbbf24; font-weight:600;'> Disabled in Stash</span>"
         else:
-            st_badge = "<span style='color:#f87171; font-weight:600;'>🔴 Missing</span>"
+            st_badge = "<span style='color:#f87171; font-weight:600;'> Missing</span>"
 
         link_html = (
             f"<a href='{html.escape(m_link)}' style='color:#7c8cff; text-decoration:none;'>View</a>" if m_link else "Local"
@@ -296,7 +303,7 @@ def on_preset_selected(self):
     <html>
     <body style='font-family:"Segoe UI", Inter, sans-serif; background-color:#14161d; color:#eceef3; padding:10px;'>
         <div style='border-bottom:1px solid #232733; padding-bottom:12px; margin-bottom:14px;'>
-            <h2 style='color:#eceef3; margin:0 0 6px 0;'>🎒 {name}</h2>
+            <h2 style='color:#eceef3; margin:0 0 6px 0;'>{name}</h2>
             <div style='color:#7f8698; font-size:12px; margin-bottom:8px;'>
                 <b>SPT Target:</b> <span style='color:#7c8cff;'>{ver}</span> &nbsp;|&nbsp;
                 <b>Created:</b> {created} &nbsp;|&nbsp;
@@ -373,7 +380,7 @@ def create_preset_from_stash(self):
                 json.dump(preset_data, f, indent=2)
             self.load_presets_list()
             if hasattr(self, "toast"):
-                self.toast.success(f"🎒 Preset '{preset_name}' saved!")
+                self.toast.success(f"Preset '{preset_name}' saved!")
             else:
                 QMessageBox.information(self, "Preset Saved", f"Preset <b>{preset_name}</b> saved successfully!")
         except Exception as e:
@@ -463,12 +470,12 @@ def apply_selected_preset(self):
     self.load_installed_mods()
     self.on_preset_selected()
     if hasattr(self, "toast"):
-        self.toast.success(f"✅ Applied preset '{preset_name}' ({enabled_count} mods enabled)")
+        self.toast.success(f" Applied preset '{preset_name}' ({enabled_count} mods enabled)")
     else:
         QMessageBox.information(
             self,
             "Preset Applied",
-            f"✅ Preset <b>{preset_name}</b> applied successfully!<br><br>"
+            f" Preset <b>{preset_name}</b> applied successfully!<br><br>"
             f"<b>{enabled_count} mod component(s)</b> enabled in live game.",
         )
 
@@ -497,7 +504,7 @@ def export_selected_preset(self):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(html_out)
         if hasattr(self, "toast"):
-            self.toast.success(f"📤 Exported preset manifest to {Path(file_path).name}")
+            self.toast.success(f" Exported preset manifest to {Path(file_path).name}")
         else:
             QMessageBox.information(self, "Export Complete", f"Preset manifest exported to:\n\n{file_path}")
     except Exception as e:
@@ -538,7 +545,7 @@ def import_preset_file(self):
 
         self.load_presets_list()
         if hasattr(self, "toast"):
-            self.toast.success(f"📥 Imported preset '{name}'")
+            self.toast.success(f" Imported preset '{name}'")
         else:
             QMessageBox.information(self, "Preset Imported", f"Preset <b>{name}</b> imported successfully!")
     except Exception as e:
@@ -564,7 +571,7 @@ def delete_selected_preset(self):
             Path(file_path).unlink()
             self.load_presets_list()
             if hasattr(self, "toast"):
-                self.toast.error(f"🗑 Deleted preset '{name}'")
+                self.toast.error(f" Deleted preset '{name}'")
             else:
                 QMessageBox.information(self, "Preset Deleted", f"Preset <b>{name}</b> was deleted.")
         except Exception as e:
@@ -609,7 +616,7 @@ def export_stash_manifest(self):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(html_out)
         if hasattr(self, "toast"):
-            self.toast.success(f"📤 Exported manifest to {Path(file_path).name}")
+            self.toast.success(f" Exported manifest to {Path(file_path).name}")
         else:
             QMessageBox.information(self, "Export Complete", f"Stash manifest exported to:\n\n{file_path}")
     except Exception as e:

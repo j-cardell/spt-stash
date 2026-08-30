@@ -29,10 +29,7 @@ class RSSFetcherThread(QThread):
             if not self.force_refresh and paths.CATALOG_CACHE_FILE.exists():
                 with open(paths.CATALOG_CACHE_FILE, encoding="utf-8") as f:
                     mods = json.load(f)
-                self.progress.emit(
-                    f"Loaded {len(mods)} mods from offline disk cache (0 network requests made). "
-                    "Click 'Refresh sp-mod.com Feed' to check for online updates."
-                )
+                self.progress.emit("Catalog loaded from offline cache")
                 self.fetched.emit(mods)
                 return
 
