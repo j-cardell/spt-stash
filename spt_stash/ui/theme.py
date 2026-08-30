@@ -10,14 +10,24 @@ BORDER = "#232733"
 BORDER_HOVER = "#2e3346"
 TEXT = "#eceef3"
 TEXT_MUTED = "#7f8698"
+DISABLED_TEXT = "#9aa0b0"
 ACCENT = "#7c8cff"
 ACCENT_DIM = "rgba(124, 140, 255, 0.12)"
+ACCENT_HOVER = "#a4afff"
 SUCCESS = "#4ade80"
 SUCCESS_DIM = "rgba(74, 222, 128, 0.12)"
 DANGER = "#f87171"
 DANGER_DIM = "rgba(248, 113, 113, 0.10)"
 WARNING = "#fbbf24"
 WARNING_DIM = "rgba(251, 191, 36, 0.10)"
+
+# ── Component / control tokens ─────────────────────────────────────────────
+TRACK_BG = "#1e222d"  # toggle switch track
+TRACK_BORDER = "#3a4052"  # toggle switch track border / icon hairline
+BTN_HOVER_BORDER = "#383e52"  # push-button hover border
+TOAST_BG = "#181825"
+TOAST_BORDER = "#89b4fa"
+TOAST_TEXT = "#cdd6f4"
 
 # ── Radii ─────────────────────────────────────────────────────────────────
 RADIUS_SM = 6
