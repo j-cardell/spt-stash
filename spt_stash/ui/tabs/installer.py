@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...staging.workers import ModInstallerThread
+from ..theme import ACCENT, BORDER, BORDER_HOVER, SURFACE, SURFACE_2, TEXT, TEXT_MUTED
 
 
 def setup_installer_tab(self):
@@ -27,24 +28,24 @@ def setup_installer_tab(self):
     layout.addWidget(lbl_title)
 
     lbl_subtitle = QLabel("Drop a .zip or .7z from sp-mod.com or your own collection")
-    lbl_subtitle.setStyleSheet("color: #7f8698; font-size: 12px; margin-bottom: 4px;")
+    lbl_subtitle.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; margin-bottom: 4px;")
     layout.addWidget(lbl_subtitle)
 
     # Single dashed drop zone
     self.dropzone = QFrame()
     self.dropzone.setObjectName("dropZone")
     self.dropzone.setAcceptDrops(True)
-    self.dropzone.setStyleSheet("""
-        QFrame#dropZone {
-            background-color: #14161d;
-            border: 2px dashed #2e3346;
+    self.dropzone.setStyleSheet(f"""
+        QFrame#dropZone {{
+            background-color: {SURFACE};
+            border: 2px dashed {BORDER_HOVER};
             border-radius: 12px;
             padding: 40px 24px;
-        }
-        QFrame#dropZone:hover {
-            border-color: #7c8cff;
-            background-color: #1a1d27;
-        }
+        }}
+        QFrame#dropZone:hover {{
+            border-color: {ACCENT};
+            background-color: {SURFACE_2};
+        }}
     """)
     dz_layout = QVBoxLayout(self.dropzone)
     dz_layout.setAlignment(Qt.AlignCenter)
@@ -52,12 +53,12 @@ def setup_installer_tab(self):
     dz_layout.setContentsMargins(24, 24, 24, 24)
 
     dz_title = QLabel("Drop a mod archive here")
-    dz_title.setStyleSheet("font-size: 15px; font-weight: 700; color: #eceef3; background: transparent; border: none;")
+    dz_title.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {TEXT}; background: transparent; border: none;")
     dz_title.setAlignment(Qt.AlignCenter)
     dz_layout.addWidget(dz_title)
 
     dz_sub = QLabel(".zip / .7z / folders are auto-detected as Client, Server, or Dual mods")
-    dz_sub.setStyleSheet("color: #7f8698; font-size: 12px; background: transparent; border: none;")
+    dz_sub.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; background: transparent; border: none;")
     dz_sub.setAlignment(Qt.AlignCenter)
     dz_layout.addWidget(dz_sub)
 
@@ -65,25 +66,25 @@ def setup_installer_tab(self):
 
     # Staged file card (hidden until file chosen)
     self.install_file_card = QFrame()
-    self.install_file_card.setStyleSheet("""
-        QFrame {
-            background-color: #14161d;
-            border: 1px solid #232733;
+    self.install_file_card.setStyleSheet(f"""
+        QFrame {{
+            background-color: {SURFACE};
+            border: 1px solid {BORDER};
             border-radius: 10px;
             padding: 12px 16px;
-        }
+        }}
     """)
     card_layout = QHBoxLayout(self.install_file_card)
     card_layout.setContentsMargins(12, 8, 12, 8)
     card_layout.setSpacing(12)
 
     self.lbl_install_file = QLabel("No archive selected")
-    self.lbl_install_file.setStyleSheet("color: #eceef3; font-size: 13px;")
+    self.lbl_install_file.setStyleSheet(f"color: {TEXT}; font-size: 13px;")
     card_layout.addWidget(self.lbl_install_file)
     card_layout.addStretch()
 
     self.lbl_install_type = QLabel("")
-    self.lbl_install_type.setStyleSheet("color: #7c8cff; font-size: 12px;")
+    self.lbl_install_type.setStyleSheet(f"color: {ACCENT}; font-size: 12px;")
     card_layout.addWidget(self.lbl_install_type)
 
     self.btn_install_archive = QPushButton("Install")
@@ -109,26 +110,26 @@ def setup_installer_tab(self):
 
     def _info_card(title, body):
         card = QFrame()
-        card.setStyleSheet("""
-            QFrame {
-                background-color: #14161d;
-                border: 1px solid #232733;
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {SURFACE};
+                border: 1px solid {BORDER};
                 border-radius: 10px;
-            }
-            QLabel {
+            }}
+            QLabel {{
                 background: transparent;
                 border: none;
-                color: #eceef3;
-            }
+                color: {TEXT};
+            }}
         """)
         c_layout = QVBoxLayout(card)
         c_layout.setContentsMargins(16, 14, 16, 14)
         c_layout.setSpacing(8)
         tl = QLabel(title)
-        tl.setStyleSheet("color: #7f8698; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;")
+        tl.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;")
         c_layout.addWidget(tl)
         bl = QLabel(body)
-        bl.setStyleSheet("color: #eceef3; font-size: 12px; line-height: 1.4;")
+        bl.setStyleSheet(f"color: {TEXT}; font-size: 12px; line-height: 1.4;")
         bl.setWordWrap(True)
         c_layout.addWidget(bl)
         return card

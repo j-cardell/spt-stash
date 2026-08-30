@@ -30,6 +30,7 @@ from ...staging.links import remove_path
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
+from ..theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE, TEXT, TEXT_MUTED, WARNING
 from ..widgets import ModItemDelegate, RemoteImageTextBrowser, SearchField, _nav_pixmap
 
 
@@ -65,13 +66,13 @@ def setup_browse_tab(self):
 
     self.installed_spt_ver = detect_installed_spt_version()
     self.chk_installed_version = QCheckBox(f"Filter for Installed ({self.installed_spt_ver})")
-    self.chk_installed_version.setStyleSheet("font-weight: 600; color: #7f8698;")
+    self.chk_installed_version.setStyleSheet(f"font-weight: 600; color: {TEXT_MUTED};")
     self.chk_installed_version.setChecked(True)
     self.chk_installed_version.toggled.connect(self.filter_remote_mods)
     filter_layout.addWidget(self.chk_installed_version)
 
     btn_fetch = QPushButton("Refresh")
-    btn_fetch.setIcon(QIcon(_nav_pixmap("refresh", size=14, color="#7f8698")))
+    btn_fetch.setIcon(QIcon(_nav_pixmap("refresh", size=14, color=TEXT_MUTED)))
     btn_fetch.setIconSize(QSize(14, 14))
     btn_fetch.setProperty("role", "ghost")
     btn_fetch.setProperty("size", "sm")
@@ -82,7 +83,7 @@ def setup_browse_tab(self):
     layout.addLayout(filter_layout)
 
     splitter = QSplitter(Qt.Horizontal)
-    splitter.setStyleSheet("QSplitter::handle { background-color: #232733; width: 1px; }")
+    splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {BORDER}; width: 1px; }}")
 
     self.list_remote = QListWidget()
     self.list_remote.setSpacing(4)
@@ -98,33 +99,33 @@ def setup_browse_tab(self):
 
     # Selected mod action card (always visible at top)
     self.detail_action_card = QFrame()
-    self.detail_action_card.setStyleSheet("""
-        QFrame {
-            background-color: #14161d;
-            border: 1px solid #232733;
+    self.detail_action_card.setStyleSheet(f"""
+        QFrame {{
+            background-color: {SURFACE};
+            border: 1px solid {BORDER};
             border-radius: 10px;
             padding: 12px 14px;
-        }
-        QFrame QLabel {
+        }}
+        QFrame QLabel {{
             background: transparent;
             border: none;
-        }
+        }}
     """)
     action_layout = QHBoxLayout(self.detail_action_card)
     action_layout.setContentsMargins(10, 6, 10, 6)
     action_layout.setSpacing(10)
 
     self.lbl_detail_title = QLabel("No mod selected")
-    self.lbl_detail_title.setStyleSheet("color: #eceef3; font-size: 13px; font-weight: 600;")
+    self.lbl_detail_title.setStyleSheet(f"color: {TEXT}; font-size: 13px; font-weight: 600;")
     action_layout.addWidget(self.lbl_detail_title)
     action_layout.addStretch()
 
     self.lbl_detail_size = QLabel("")
-    self.lbl_detail_size.setStyleSheet("color: #7f8698; font-size: 12px;")
+    self.lbl_detail_size.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
     action_layout.addWidget(self.lbl_detail_size)
 
     self.btn_download_mod = QPushButton("Install")
-    self.btn_download_mod.setIcon(QIcon(_nav_pixmap("install", size=14, color="#0f1016")))
+    self.btn_download_mod.setIcon(QIcon(_nav_pixmap("install", size=14, color=BG)))
     self.btn_download_mod.setIconSize(QSize(14, 14))
     self.btn_download_mod.setProperty("role", "success")
     self.btn_download_mod.setProperty("size", "sm")
@@ -133,7 +134,7 @@ def setup_browse_tab(self):
     action_layout.addWidget(self.btn_download_mod)
 
     self.btn_open_web = QPushButton("Open Page")
-    self.btn_open_web.setIcon(QIcon(_nav_pixmap("external", size=14, color="#7f8698")))
+    self.btn_open_web.setIcon(QIcon(_nav_pixmap("external", size=14, color=TEXT_MUTED)))
     self.btn_open_web.setIconSize(QSize(14, 14))
     self.btn_open_web.setProperty("role", "ghost")
     self.btn_open_web.setProperty("size", "sm")
@@ -147,7 +148,7 @@ def setup_browse_tab(self):
     self.web_detail = RemoteImageTextBrowser()
     self.web_detail.setOpenExternalLinks(True)
     self.web_detail.setStyleSheet(
-        "background-color: #14161d; border: 1px solid #232733; border-radius: 8px; color: #eceef3; padding: 12px;"
+        f"background-color: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px; color: {TEXT}; padding: 12px;"
     )
     right_layout.addWidget(self.web_detail)
 
@@ -161,17 +162,17 @@ def setup_browse_tab(self):
 
 def fetch_remote_mods(self, force_refresh=False):
     self.list_remote.clear()
-    self.web_detail.setHtml("<h3 style='color:#7f8698; text-align:center; margin-top:40px;'>Loading catalog...</h3>")
+    self.web_detail.setHtml(f"<h3 style='color:{TEXT_MUTED}; text-align:center; margin-top:40px;'>Loading catalog...</h3>")
 
     self.rss_thread = RSSFetcherThread(self)
     self.rss_thread.force_refresh = force_refresh
     self.rss_thread.progress.connect(
-        lambda p: self.web_detail.setHtml(f"<h3 style='color:#7f8698; text-align:center; margin-top:40px;'>{p}</h3>")
+        lambda p: self.web_detail.setHtml(f"<h3 style='color:{TEXT_MUTED}; text-align:center; margin-top:40px;'>{p}</h3>")
     )
     self.rss_thread.fetched.connect(self.on_remote_mods_fetched)
     self.rss_thread.error.connect(
         lambda err: self.web_detail.setHtml(
-            f"<h3 style='color:#f87171; text-align:center; margin-top:40px;'>Error fetching catalog: {err}</h3>"
+            f"<h3 style='color:{DANGER}; text-align:center; margin-top:40px;'>Error fetching catalog: {err}</h3>"
         )
     )
     self.rss_thread.start()
@@ -243,10 +244,10 @@ def filter_remote_mods(self):
 
     # Reset detail pane to empty state when filter changes selection.
     self.list_remote.clearSelection()
-    self.web_detail.setHtml("""
-        <div style='color:#7f8698; text-align:center; padding:48px 24px; font-size:14px;'>
+    self.web_detail.setHtml(f"""
+        <div style='color:{TEXT_MUTED}; text-align:center; padding:48px 24px; font-size:14px;'>
             <div style='font-size:28px; margin-bottom:12px;'></div>
-            <div style='color:#eceef3; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+            <div style='color:{TEXT}; font-weight:600; margin-bottom:8px;'>No mod selected</div>
             <div>Select a mod from the list to view details, dependencies, and install options.</div>
         </div>
     """)
@@ -267,15 +268,6 @@ def render_mod_detail_html(self, mod):
     fika_status = mod.get("fika_status", "Unknown")
     has_ai = mod.get("has_ai", False)
 
-    # V4 palette mapped to inline HTML
-    BG = "#14161d"
-    BORDER = "#232733"
-    ACCENT = "#7c8cff"
-    TEXT = "#eceef3"
-    TEXT_MUTED = "#7f8698"
-    SUCCESS = "#4ade80"
-    DANGER = "#f87171"
-    WARNING = "#fbbf24"
 
     guid_html = (
         f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>GUID:</b></td><td><code style='color:{SUCCESS}; font-family:monospace;'>{html.escape(guid)}</code></td></tr>"
@@ -313,7 +305,7 @@ def render_mod_detail_html(self, mod):
     stats_html = f" {dl_cnt:,} downloads  •   {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
 
     card_html = f"""
-    <div style='background-color:{BG}; border:1px solid {BORDER}; border-radius:8px; padding:14px; margin-bottom:14px;'>
+    <div style='background-color:{SURFACE}; border:1px solid {BORDER}; border-radius:8px; padding:14px; margin-bottom:14px;'>
         <h3 style='color:{TEXT}; margin:0 0 12px 0; font-size:14px;'>Mod Details & Author Info</h3>
         <table style='width:100%; font-size:12.5px; color:{TEXT}; border-collapse:collapse;'>
             <tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>Author:</b></td><td><b style='color:{ACCENT};'>{creator}</b></td></tr>
@@ -333,7 +325,7 @@ def render_mod_detail_html(self, mod):
     deps = mod.get("dependencies", [])
     dep_html = ""
     if deps:
-        dep_html = f"<div style='background-color:{BG}; border:1px solid {BORDER}; border-radius:8px; padding:12px; margin-top:14px;'>"
+        dep_html = f"<div style='background-color:{SURFACE}; border:1px solid {BORDER}; border-radius:8px; padding:12px; margin-top:14px;'>"
         dep_html += f"<h3 style='color:{TEXT}; margin:0 0 8px 0; font-size:14px;'>Required Dependencies ({len(deps)}):</h3>"
         for d in deps:
             st = d.get("status")
@@ -358,9 +350,9 @@ def on_remote_mod_selected(self):
         self.detail_action_card.setVisible(False)
         self.lbl_detail_title.setText("No mod selected")
         self.lbl_detail_size.setText("")
-        self.web_detail.setHtml("""
-        <div style='color:#7f8698; text-align:center; padding:48px 24px; font-size:14px;'>
-            <div style='color:#eceef3; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+        self.web_detail.setHtml(f"""
+        <div style='color:{TEXT_MUTED}; text-align:center; padding:48px 24px; font-size:14px;'>
+            <div style='color:{TEXT}; font-weight:600; margin-bottom:8px;'>No mod selected</div>
             <div>Select a mod from the list to view details, dependencies, and install options.</div>
         </div>
         """)
