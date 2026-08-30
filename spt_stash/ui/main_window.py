@@ -71,14 +71,12 @@ class SPTModManagerWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        #  Sidebar
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(8, 16, 8, 8)
         sidebar_layout.setSpacing(4)
 
-        # Brand row
         brand_row = QHBoxLayout()
         brand_row.setContentsMargins(6, 0, 6, 14)
         brand_row.setSpacing(10)

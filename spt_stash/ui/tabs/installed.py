@@ -154,7 +154,6 @@ def setup_installed_tab(self):
 
     layout.addLayout(toolbar)
 
-    #  Table Widget
     self.table_mods = QTableWidget()
     self.table_mods.setObjectName("tableMods")
     self.table_mods.setColumnCount(7)

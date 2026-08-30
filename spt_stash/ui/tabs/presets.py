@@ -47,7 +47,6 @@ def setup_presets_tab(self):
     layout.setContentsMargins(20, 16, 20, 16)
     layout.setSpacing(12)
 
-    #  Top Row
     top_row = QHBoxLayout()
     top_row.setSpacing(10)
 

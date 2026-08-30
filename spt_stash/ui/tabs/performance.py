@@ -38,7 +38,6 @@ def setup_performance_tab(self):
     cpu_info = detect_cpu_core_allocation()
     gpu_info = detect_gpu_hardware()
 
-    #  Top Header
     top_header = QHBoxLayout()
     header_v = QVBoxLayout()
     lbl_title = QLabel("Linux Performance & Game Launch Tuning")
