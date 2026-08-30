@@ -480,7 +480,6 @@ def start_mod_download(self):
                 dep["status"] = "ENABLED"
                 dep["installed"] = True
             self.load_installed_mods()
-            self.load_installed_mods()
 
     missing_deps = [
         d for d in deps if d.get("status") == "MISSING" or (not d.get("installed") and d.get("status") != "ENABLED")
