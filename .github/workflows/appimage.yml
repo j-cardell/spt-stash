@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y p7zip-full libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 wget squashfs-tools
           pip install --upgrade pip
-          pip install PySide6 pyinstaller
+          pip install PySide6 pyinstaller certifi
 
       - name: Compile Standalone Binary with PyInstaller
         run: |

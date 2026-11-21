@@ -4,9 +4,9 @@
 import json
 import re
 import urllib.parse
-import urllib.request
 
 from .. import paths
+from ..catalog.http import urlopen_with_certs
 from ..staging.metadata import save_mod_meta
 from .aliases import ALIASES
 
@@ -66,10 +66,9 @@ def resolve_author_profile_url(mod_dict):
 
     if mod_url:
         try:
-            req = urllib.request.Request(mod_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
-            raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
+            raw_html = urlopen_with_certs(mod_url, timeout=6).read().decode("utf-8")
             user_links = re.findall(
-                r"href=[\'\"](https?://sp-mod\.com/user/\d+/[^\'\"]+|/user/\d+/[^\'\"]+)[\'\"]",
+                r"href=[\\'\"](https?://sp-mod\.com/user/\d+/[^\\'\"]+|/user/\d+/[^\\'\"]+)[\\'\"]",
                 raw_html,
             )
             if user_links:
