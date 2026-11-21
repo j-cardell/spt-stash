@@ -51,17 +51,42 @@ class TestSPTModManagerCore(unittest.TestCase):
 
     def test_catalog_matching_and_aliases(self):
         """Test catalog resolution and alias mappings."""
-        match1 = spt_stash.find_best_catalog_match_global("acidphantasm-bepinexconfigurationmanager")
-        self.assertIsNotNone(match1)
-        self.assertIn("ASBP", match1["title"])
+        # Seed a temporary catalog cache so matching is deterministic.
+        original_catalog_path = spt_stash.paths.CATALOG_CACHE_FILE
+        with tempfile.TemporaryDirectory() as tmpdir:
+            catalog_path = Path(tmpdir) / "catalog.json"
+            catalog_path.write_text(json.dumps([
+                {
+                    "title": "ASBP - Acid's Scalable BepInEx Panel",
+                    "link": "https://sp-mod.com/mod/1/acids-scalable-bepinex-panel",
+                    "creator": "AcidPhantasm",
+                },
+                {
+                    "title": "UI Fixes",
+                    "link": "https://sp-mod.com/mod/2/ui-fixes",
+                    "creator": "Tyfon",
+                },
+                {
+                    "title": "SAIN - Solarint's AI Modifications",
+                    "link": "https://sp-mod.com/mod/3/sain-solarints-ai-modifications",
+                    "creator": "Solarint",
+                },
+            ]), encoding="utf-8")
+            spt_stash.paths.CATALOG_CACHE_FILE = catalog_path
+            try:
+                match1 = spt_stash.find_best_catalog_match_global("acidphantasm-bepinexconfigurationmanager")
+                self.assertIsNotNone(match1)
+                self.assertIn("ASBP", match1["title"])
 
-        match2 = spt_stash.find_best_catalog_match_global("Tyfon.UIFixes.dll")
-        self.assertIsNotNone(match2)
-        self.assertEqual(match2["title"], "UI Fixes")
+                match2 = spt_stash.find_best_catalog_match_global("Tyfon.UIFixes.dll")
+                self.assertIsNotNone(match2)
+                self.assertEqual(match2["title"], "UI Fixes")
 
-        match3 = spt_stash.find_best_catalog_match_global("Solarint-SAIN-ServerMod")
-        self.assertIsNotNone(match3)
-        self.assertIn("SAIN", match3["title"])
+                match3 = spt_stash.find_best_catalog_match_global("Solarint-SAIN-ServerMod")
+                self.assertIsNotNone(match3)
+                self.assertIn("SAIN", match3["title"])
+            finally:
+                spt_stash.paths.CATALOG_CACHE_FILE = original_catalog_path
 
     def test_metadata_load_and_save(self):
         """Test metadata sidecar reading and writing."""
