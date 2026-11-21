@@ -333,6 +333,15 @@ class SPTModManagerWindow(QMainWindow):
             f"Please update your paths in Settings.",
         )
 
+    def closeEvent(self, event):
+        """Stop background timers/threads so the process exits cleanly."""
+        self.status_timer.stop()
+        rss_thread = getattr(self, "rss_thread", None)
+        if rss_thread and rss_thread.isRunning():
+            rss_thread.terminate()
+            rss_thread.wait(3000)
+        event.accept()
+
     # installed_tab bindings
     _set_chip_filter = installed_tab._set_chip_filter
     _on_mod_row_checked = installed_tab._on_mod_row_checked
