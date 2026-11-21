@@ -4,12 +4,12 @@
 import html
 import json
 import re
-import urllib.request
 
 from PySide6.QtCore import QThread, Signal
 
 from .. import paths
 from .dependencies import fetch_mod_dependencies_sync
+from .http import urlopen_with_certs
 
 
 class RSSFetcherThread(QThread):
@@ -38,10 +38,11 @@ class RSSFetcherThread(QThread):
 
             for page in range(1, 15):
                 url = f"https://sp-mod.com/mods?perPage=50&page={page}"
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
                 try:
-                    raw_html = urllib.request.urlopen(req, timeout=8).read().decode("utf-8")
-                except Exception:
+                    raw_html = urlopen_with_certs(url, timeout=8).read().decode("utf-8")
+                except Exception as e:
+                    if page == 1:
+                        self.error.emit(f"Catalog fetch failed: {e}")
                     break
 
                 blocks = raw_html.split('href="https://sp-mod.com/mod/')[1:]
@@ -179,10 +180,7 @@ class ModDetailFetcherThread(QThread):
                 self.fetched.emit(self.mod_name, data.get("description", ""))
                 return
 
-            req = urllib.request.Request(
-                matched["link"], headers={"User-Agent": "Mozilla/5.0"}
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urlopen_with_certs(matched["link"], timeout=15) as resp:
                 page = resp.read().decode("utf-8")
 
             m = re.search(

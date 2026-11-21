@@ -3,8 +3,8 @@
 
 import html
 import re
-import urllib.request
 
+from ..catalog.http import urlopen_with_certs
 from ..catalog.matching import (
     find_best_catalog_match_global,  # noqa: F401  (re-exported)
 )
@@ -89,8 +89,7 @@ def fetch_mod_dependencies_sync(mod_info):
         return deps
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
-        raw_html = urllib.request.urlopen(req, timeout=6).read().decode("utf-8")
+        raw_html = urlopen_with_certs(url, timeout=6).read().decode("utf-8")
 
         _enrich_mod_info(mod_info, raw_html)
 
