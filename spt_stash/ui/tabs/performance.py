@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""SPT Stash — Linux Performance & Launch Tuning tab."""
+"""SPT Stash — Linux Performance & Launch Tuning tab (V4 layout with custom ToggleSwitch)."""
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QCheckBox,
+    QFrame,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from ...config import load_config, save_config
@@ -22,234 +24,213 @@ from ...system.hardware import (
     detect_cpu_core_allocation,
     detect_gpu_hardware,
 )
+from ..theme import BG, BORDER, SUCCESS, SURFACE, TEXT, TEXT_MUTED
+from ..widgets import ToggleSwitch, _nav_pixmap
 
 
 def setup_performance_tab(self):
     layout = QVBoxLayout(self.tab_performance)
-    layout.setContentsMargins(14, 14, 14, 14)
-    layout.setSpacing(10)
+    layout.setContentsMargins(22, 16, 22, 16)
+    layout.setSpacing(14)
 
     cfg = load_config()
     deps = audit_system_dependencies()
     cpu_info = detect_cpu_core_allocation()
     gpu_info = detect_gpu_hardware()
 
-    # Header Title & Hardware Detection Banner
     top_header = QHBoxLayout()
     header_v = QVBoxLayout()
-    lbl_title = QLabel("⚡ Linux Performance && Game Launch Tuning")
-    lbl_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #89b4fa;")
+    lbl_title = QLabel("Linux Performance & Game Launch Tuning")
+    lbl_title.setStyleSheet("font-size: 18px; font-weight: 700; letter-spacing: -0.02em;")
     lbl_sub = QLabel(
         "All performance optimizations are OFF by default. Enable recommended driver flags for your hardware."
     )
-    lbl_sub.setStyleSheet("color: #a6adc8; font-size: 11px;")
+    lbl_sub.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
     header_v.addWidget(lbl_title)
     header_v.addWidget(lbl_sub)
-
-    lbl_hw_badge = QLabel(f"🎮 <b>GPU:</b> {gpu_info['vendor']} ({gpu_info['name'][:32]})")
-    lbl_hw_badge.setStyleSheet(
-        "background-color: #313244; color: #a6e3a1; border: 1px solid #45475a; font-size: 11px; font-weight: bold; padding: 6px 12px; border-radius: 6px;"
-    )
-
     top_header.addLayout(header_v)
-    top_header.addStretch()
-    top_header.addWidget(lbl_hw_badge)
     layout.addLayout(top_header)
 
-    grid = QGridLayout()
-    grid.setSpacing(10)
+    #  Hardware Detection Banner
+    hw_banner = QFrame()
+    hw_banner.setObjectName("hwBanner")
+    hw_layout = QHBoxLayout(hw_banner)
+    hw_layout.setContentsMargins(16, 12, 16, 12)
+    hw_layout.setSpacing(16)
 
-    card_style = """
-        QGroupBox { font-weight: bold; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; margin-top: 4px; padding: 10px; background-color: #1e1e2e; }
-        QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; color: %COLOR%; }
-    """
+    lbl_gpu = QLabel(f"<b>GPU:</b> {gpu_info['vendor']} ({gpu_info['name']})")
+    lbl_gpu.setStyleSheet(f"font-size: 12.5px; color: {TEXT};")
+    hw_layout.addWidget(lbl_gpu)
+
+    cpu_info = detect_cpu_core_allocation()
+    lbl_cpu = QLabel(f"<b>CPU:</b> {cpu_info['model_name']} ({cpu_info['threads']} Threads)")
+    lbl_cpu.setStyleSheet(f"font-size: 12.5px; color: {TEXT};")
+    hw_layout.addWidget(lbl_cpu)
+
+    deps = audit_system_dependencies()
+    lbl_deps = QLabel(
+        f"<b>MangoHud:</b> {'Ready' if deps['mangohud'] else 'Missing'} &nbsp;|&nbsp; "
+        f"<b>GameMode:</b> {'Ready' if deps['gamemode'] else 'Missing'}"
+    )
+    lbl_deps.setStyleSheet(f"font-size: 12px; color: {TEXT_MUTED};")
+    hw_layout.addWidget(lbl_deps)
+
+    layout.addWidget(hw_banner)
+
+    #  Grid of Performance Cards
+    grid = QGridLayout()
+    grid.setSpacing(12)
+
+    def _create_perf_card(title_text, desc_text, switch_widget, extra_widget=None):
+        card = QFrame()
+        card.setObjectName("perfCard")
+        card.setStyleSheet(f"""
+            QFrame#perfCard {{
+                background-color: {SURFACE};
+                border: 1px solid {BORDER};
+                border-radius: 10px;
+            }}
+            QFrame#perfCard QLabel {{
+                background: transparent;
+                border: none;
+            }}
+        """)
+        c_layout = QVBoxLayout(card)
+        c_layout.setContentsMargins(16, 14, 16, 14)
+        c_layout.setSpacing(10)
+
+        head_row = QHBoxLayout()
+        head_row.setSpacing(10)
+        lbl_h = QLabel(title_text)
+        lbl_h.setStyleSheet(f"font-weight: 700; font-size: 13px; color: {TEXT};")
+        head_row.addWidget(lbl_h)
+        head_row.addStretch()
+        head_row.addWidget(switch_widget)
+        c_layout.addLayout(head_row)
+
+        lbl_d = QLabel(desc_text)
+        lbl_d.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; line-height: 1.4;")
+        lbl_d.setWordWrap(True)
+        c_layout.addWidget(lbl_d)
+
+        if extra_widget:
+            c_layout.addWidget(extra_widget)
+
+        c_layout.addStretch()
+        return card
 
     # Card 1: MangoHud (0, 0)
-    card_mangohud = QGroupBox("📊 MangoHud Performance Overlay")
-    card_mangohud.setStyleSheet(card_style.replace("%COLOR%", "#89b4fa"))
-    m_lay = QVBoxLayout(card_mangohud)
-    m_lay.setSpacing(6)
-
-    m_row = QHBoxLayout()
-    self.chk_perf_mangohud = QCheckBox("Enable MangoHud Overlay (MANGOHUD=1)")
+    self.chk_perf_mangohud = ToggleSwitch()
     self.chk_perf_mangohud.setChecked(cfg.get("enable_mangohud", False) and deps["mangohud"])
-    self.chk_perf_mangohud.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
-
-    lbl_m_status = QLabel(
-        "<span style='color: #a6e3a1; font-weight: bold;'>🟢 mangohud</span>"
-        if deps["mangohud"]
-        else "<span style='color: #f38ba8; font-weight: bold;'>⚠️ missing</span>"
+    card_mangohud = _create_perf_card(
+        "MangoHud Performance Overlay",
+        "Displays real-time FPS, frametime graphs, CPU/GPU temperatures, and VRAM usage over Tarkov (MANGOHUD=1).",
+        self.chk_perf_mangohud,
     )
-    m_row.addWidget(self.chk_perf_mangohud)
-    m_row.addStretch()
-    m_row.addWidget(lbl_m_status)
-    m_lay.addLayout(m_row)
-
-    m_help = QLabel(
-        "<small style='color: #a6adc8;'>Displays real-time FPS, frametime graphs, CPU/GPU temperatures, and VRAM usage over Tarkov.</small>"
-    )
-    m_help.setWordWrap(True)
-    m_lay.addWidget(m_help)
-    m_lay.addStretch()
     grid.addWidget(card_mangohud, 0, 0)
 
     # Card 2: FSR 4 Upgrade (0, 1)
-    card_fsr4 = QGroupBox("⚡ AMD FSR 4 Upscaling Upgrade")
-    card_fsr4.setStyleSheet(card_style.replace("%COLOR%", "#a6e3a1"))
-    f_lay = QVBoxLayout(card_fsr4)
-    f_lay.setSpacing(6)
-    self.chk_perf_fsr4 = QCheckBox("Enable Proton FSR 4 Upgrade (PROTON_FSR4_UPGRADE=1)")
+    self.chk_perf_fsr4 = ToggleSwitch()
     self.chk_perf_fsr4.setChecked(cfg.get("enable_fsr4", False))
-    self.chk_perf_fsr4.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
-    f_help = QLabel(
-        "<small style='color: #a6adc8;'>Upgrades Tarkov's in-game upscaler to FSR 4 using Proton-GE / Valve Proton.</small>"
+    card_fsr4 = _create_perf_card(
+        "AMD FSR 4 Upscaling Upgrade",
+        "Upgrades Tarkov's in-game upscaler to FSR 4 using Proton-GE / Valve Proton (PROTON_FSR4_UPGRADE=1).",
+        self.chk_perf_fsr4,
     )
-    f_help.setWordWrap(True)
-    f_lay.addWidget(self.chk_perf_fsr4)
-    f_lay.addWidget(f_help)
-    f_lay.addStretch()
     grid.addWidget(card_fsr4, 0, 1)
 
     # Card 3: DXVK Async & RADV (1, 0)
-    card_dxvk = QGroupBox("🚀 DXVK Async && Shader Caching")
-    card_dxvk.setStyleSheet(card_style.replace("%COLOR%", "#f9e2af"))
-    d_lay = QVBoxLayout(card_dxvk)
-    d_lay.setSpacing(6)
-    dxvk_label = (
-        "Enable DXVK Async && State Cache (DXVK_ASYNC=1, RADV_PERFTEST=gpl)"
-        if gpu_info["vendor"] == "AMD"
-        else "Enable DXVK Async && State Cache (DXVK_ASYNC=1)"
-    )
-    self.chk_perf_dxvk = QCheckBox(dxvk_label)
+    self.chk_perf_dxvk = ToggleSwitch()
     self.chk_perf_dxvk.setChecked(cfg.get("enable_dxvk_async", False))
-    self.chk_perf_dxvk.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
-    d_help = QLabel(
-        "<small style='color: #a6adc8;'>Compiles graphics shaders asynchronously in background threads to eliminate scope-in and firefight micro-stutters.</small>"
+    dxvk_desc = (
+        "Compiles graphics shaders asynchronously in background threads to eliminate scope-in micro-stutters (DXVK_ASYNC=1, RADV_PERFTEST=gpl)."
+        if gpu_info["vendor"] == "AMD"
+        else "Compiles graphics shaders asynchronously in background threads to eliminate scope-in micro-stutters (DXVK_ASYNC=1)."
     )
-    d_help.setWordWrap(True)
-    d_lay.addWidget(self.chk_perf_dxvk)
-    d_lay.addWidget(d_help)
-    d_lay.addStretch()
+    card_dxvk = _create_perf_card("DXVK Async & Shader Caching", dxvk_desc, self.chk_perf_dxvk)
     grid.addWidget(card_dxvk, 1, 0)
 
     # Card 4: CPU Core Isolation (1, 1)
-    card_cpu = QGroupBox("🧠 CPU Core Isolation (taskset)")
-    card_cpu.setStyleSheet(card_style.replace("%COLOR%", "#cba6f7"))
-    c_lay = QVBoxLayout(card_cpu)
-    c_lay.setSpacing(6)
+    self.chk_perf_cpu = ToggleSwitch()
+    self.chk_perf_cpu.setChecked(cfg.get("enable_cpu_pinning", False))
 
-    self.chk_perf_cpu = QCheckBox("Isolate CPU Cores between Server and Client")
-    self.chk_perf_cpu.setChecked(cfg.get("enable_cpu_pinning", False) and deps["taskset"])
-    self.chk_perf_cpu.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
+    cpu_extra = QWidget()
+    cpu_extra.setStyleSheet("background: transparent;")
+    cpu_extra_lay = QVBoxLayout(cpu_extra)
+    cpu_extra_lay.setContentsMargins(0, 0, 0, 0)
+    cpu_extra_lay.setSpacing(8)
 
-    btn_autodetect_cpu = QPushButton("🤖 Auto-Detect")
-    btn_autodetect_cpu.setStyleSheet(
-        "background-color: #313244; color: #cba6f7; border: 1px solid #45475a; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px;"
-    )
-    btn_autodetect_cpu.clicked.connect(self.auto_detect_cpu_allocation_ui)
-
-    lbl_t_status = QLabel(
-        "<span style='color: #a6e3a1; font-weight: bold;'>🟢 taskset</span>"
-        if deps["taskset"]
-        else "<span style='color: #f38ba8; font-weight: bold;'>⚠️ missing</span>"
-    )
-
-    top_cpu_row = QHBoxLayout()
-    top_cpu_row.addWidget(self.chk_perf_cpu)
-    top_cpu_row.addStretch()
-    top_cpu_row.addWidget(lbl_t_status)
-    top_cpu_row.addSpacing(8)
-    top_cpu_row.addWidget(btn_autodetect_cpu)
-    c_lay.addLayout(top_cpu_row)
-
-    cores_layout = QHBoxLayout()
-    lbl_s_cores = QLabel("Server Cores:")
+    cores_box = QHBoxLayout()
+    cores_box.setSpacing(8)
+    lbl_srv = QLabel("Server:")
+    lbl_srv.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; font-weight: 600;")
+    cores_box.addWidget(lbl_srv)
     self.txt_server_cores = QLineEdit(cfg.get("server_cpu_cores", cpu_info["server_cores"]))
-    self.txt_server_cores.setFixedWidth(80)
-    lbl_c_cores = QLabel("Client Cores:")
-    self.txt_client_cores = QLineEdit(cfg.get("client_cpu_cores", cpu_info["client_cores"]))
-    self.txt_client_cores.setFixedWidth(80)
+    self.txt_server_cores.setFixedWidth(70)
+    self.txt_server_cores.setStyleSheet("padding: 4px 6px; font-size: 11.5px;")
+    cores_box.addWidget(self.txt_server_cores)
 
-    cores_layout.addWidget(lbl_s_cores)
-    cores_layout.addWidget(self.txt_server_cores)
-    cores_layout.addSpacing(12)
-    cores_layout.addWidget(lbl_c_cores)
-    cores_layout.addWidget(self.txt_client_cores)
-    cores_layout.addStretch()
+    lbl_cli = QLabel("Client:")
+    lbl_cli.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 11.5px; font-weight: 600;")
+    cores_box.addWidget(lbl_cli)
+    self.txt_client_cores = QLineEdit(cfg.get("client_cpu_cores", cpu_info["client_cores"]))
+    self.txt_client_cores.setFixedWidth(70)
+    self.txt_client_cores.setStyleSheet("padding: 4px 6px; font-size: 11.5px;")
+    cores_box.addWidget(self.txt_client_cores)
+
+    btn_auto_cpu = QPushButton("Auto")
+    btn_auto_cpu.setIcon(QIcon(_nav_pixmap("performance", size=14, color=TEXT_MUTED)))
+    btn_auto_cpu.setIconSize(QSize(14, 14))
+    btn_auto_cpu.setProperty("role", "ghost")
+    btn_auto_cpu.setProperty("size", "sm")
+    btn_auto_cpu.clicked.connect(lambda: self.auto_detect_cpu_allocation_ui())
+    cores_box.addWidget(btn_auto_cpu)
+    cores_box.addStretch()
+    cpu_extra_lay.addLayout(cores_box)
 
     self.lbl_cpu_detected_info = QLabel(
-        f"<small style='color: #cba6f7;'>CPU: <b>{cpu_info['model_name']}</b> ({cpu_info['threads']}T). Rec: Server ({cpu_info['server_cores']}), Client ({cpu_info['client_cores']}).</small>"
+        f"<small style='color: {TEXT_MUTED};'>Detected {cpu_info['threads']} threads on {cpu_info['model_name']}.</small>"
     )
-    self.lbl_cpu_detected_info.setWordWrap(True)
+    cpu_extra_lay.addWidget(self.lbl_cpu_detected_info)
 
-    c_lay.addLayout(cores_layout)
-    c_lay.addWidget(self.lbl_cpu_detected_info)
-    c_lay.addStretch()
+    card_cpu = _create_perf_card(
+        "CPU Core Isolation (taskset)",
+        "Isolates the Tarkov game client and SPT Server onto dedicated CPU affinity cores to prevent CPU scheduling contention.",
+        self.chk_perf_cpu,
+        extra_widget=cpu_extra,
+    )
     grid.addWidget(card_cpu, 1, 1)
 
-    # Card 5: NVIDIA Hardware Optimizations (2, 0)
-    card_nvidia = QGroupBox("💚 NVIDIA Hardware Optimizations")
-    card_nvidia.setStyleSheet(card_style.replace("%COLOR%", "#76b900"))
-    n_lay = QVBoxLayout(card_nvidia)
-    n_lay.setSpacing(6)
-    self.chk_perf_nvidia = QCheckBox("Enable NVIDIA Drivers (NVAPI, DLSS/Reflex, Threaded Shaders)")
+    # Card 5: NVIDIA NVAPI (2, 0)
+    self.chk_perf_nvidia = ToggleSwitch()
     self.chk_perf_nvidia.setChecked(cfg.get("enable_nvidia_opts", False))
-    self.chk_perf_nvidia.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
-    if gpu_info["vendor"] != "NVIDIA":
-        self.chk_perf_nvidia.setEnabled(False)
-        self.chk_perf_nvidia.setToolTip(f"NVIDIA optimizations disabled (Detected GPU: {gpu_info['vendor']})")
-        n_help = QLabel(
-            "<small style='color: #585b70;'>Requires an NVIDIA GeForce GPU (Detected: AMD/Intel GPU).</small>"
-        )
-    else:
-        n_help = QLabel(
-            "<small style='color: #a6adc8;'>Exports PROTON_ENABLE_NVAPI=1, DXVK_ENABLE_NVAPI=1, and __GL_THREADED_OPTIMIZATIONS=1.</small>"
-        )
-    n_help.setWordWrap(True)
-    n_lay.addWidget(self.chk_perf_nvidia)
-    n_lay.addWidget(n_help)
-    n_lay.addStretch()
+    card_nvidia = _create_perf_card(
+        "NVIDIA Drivers & Threaded Optimizations",
+        "Enables PROTON_ENABLE_NVAPI=1, DXVK_ENABLE_NVAPI=1, and __GL_THREADED_OPTIMIZATIONS=1 for NVIDIA GPUs.",
+        self.chk_perf_nvidia,
+    )
     grid.addWidget(card_nvidia, 2, 0)
 
     # Card 6: Feral GameMode (2, 1)
-    card_gamemode = QGroupBox("🎮 Feral GameMode Daemon")
-    card_gamemode.setStyleSheet(card_style.replace("%COLOR%", "#f38ba8"))
-    g_lay = QVBoxLayout(card_gamemode)
-    g_lay.setSpacing(6)
-
-    g_row = QHBoxLayout()
-    self.chk_perf_gamemode = QCheckBox("Enable GameMode Wrapper (gamemoderun)")
-    self.chk_perf_gamemode.setChecked(cfg.get("enable_gamemode", False) and deps.get("gamemode", False))
-    self.chk_perf_gamemode.setStyleSheet("QCheckBox { color: #cdd6f4; font-weight: bold; font-size: 12px; }")
-
-    lbl_g_status = QLabel(
-        "<span style='color: #a6e3a1; font-weight: bold;'>🟢 gamemoded</span>"
-        if deps.get("gamemode", False)
-        else "<span style='color: #f38ba8; font-weight: bold;'>⚠️ missing</span>"
+    self.chk_perf_gamemode = ToggleSwitch()
+    self.chk_perf_gamemode.setChecked(cfg.get("enable_gamemode", False) and deps["gamemode"])
+    card_gamemode = _create_perf_card(
+        "Feral GameMode Daemon",
+        "Requests the Linux kernel to apply maximum CPU governor performance, I/O priorities, and process niceness (gamemoderun).",
+        self.chk_perf_gamemode,
     )
-    g_row.addWidget(self.chk_perf_gamemode)
-    g_row.addStretch()
-    g_row.addWidget(lbl_g_status)
-    g_lay.addLayout(g_row)
-
-    g_help = QLabel(
-        "<small style='color: #a6adc8;'>Requests max CPU performance governor, disk I/O priority, and disables C-state sleeping during raids.</small>"
-    )
-    g_help.setWordWrap(True)
-    g_lay.addWidget(g_help)
-    g_lay.addStretch()
     grid.addWidget(card_gamemode, 2, 1)
 
     layout.addLayout(grid)
     layout.addStretch()
 
     # Apply Button
-    btn_apply = QPushButton("⚡ Save && Apply to launcher.sh && server.sh")
-    btn_apply.setFixedHeight(38)
-    btn_apply.setStyleSheet("""
-        QPushButton { background-color: #a6e3a1; color: #11111b; font-size: 13px; font-weight: bold; border-radius: 6px; padding: 6px 16px; }
-        QPushButton:hover { background-color: #b4befe; color: #11111b; }
-    """)
+    btn_apply = QPushButton("Save && Apply to launcher.sh && server.sh")
+    btn_apply.setIcon(QIcon(_nav_pixmap("performance", size=14, color=BG)))
+    btn_apply.setIconSize(QSize(14, 14))
+    btn_apply.setProperty("role", "primary")
+    btn_apply.setProperty("size", "lg")
+    btn_apply.setFixedHeight(40)
     btn_apply.clicked.connect(self.save_and_apply_performance_settings)
     layout.addWidget(btn_apply)
 
@@ -394,11 +375,14 @@ exec ${{TASKSET_CMD}} ./SPT.Server.Linux > "${{ROOT_PATH}}/user/logs/server-dire
         except Exception as e:
             print(f"Error updating server.sh: {e}")
 
-    QMessageBox.information(
-        self,
-        "⚡ Performance Settings Applied",
-        "Performance tuning options have been saved and applied to launcher.sh and server.sh!",
-    )
+    if hasattr(self, "toast"):
+        self.toast.success("Performance settings applied to launcher.sh & server.sh!")
+    else:
+        QMessageBox.information(
+            self,
+            "Performance Settings Applied",
+            "Performance tuning options have been saved and applied to launcher.sh and server.sh!",
+        )
 
 
 def auto_detect_cpu_allocation_ui(self):
@@ -406,10 +390,13 @@ def auto_detect_cpu_allocation_ui(self):
     self.txt_server_cores.setText(info["server_cores"])
     self.txt_client_cores.setText(info["client_cores"])
     self.lbl_cpu_detected_info.setText(
-        f"<small style='color: #a6e3a1;'>🤖 Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads). Applied Server ({info['server_cores']}), Client ({info['client_cores']}).</small>"
+        f"<small style='color: {SUCCESS};'>Auto-Detected: <b>{info['model_name']}</b> ({info['threads']} Threads).</small>"
     )
-    QMessageBox.information(
-        self,
-        "🤖 CPU Allocation Auto-Detected",
-        f"Detected CPU: {info['model_name']}\nTotal Threads: {info['threads']}\n\nRecommended Server Cores: {info['server_cores']}\nRecommended Client Cores: {info['client_cores']}\n\nValues populated into Settings!",
-    )
+    if hasattr(self, "toast"):
+        self.toast.success(f"CPU Auto-Detected: {info['threads']} Threads")
+    else:
+        QMessageBox.information(
+            self,
+            "CPU Allocation Auto-Detected",
+            f"Detected CPU: {info['model_name']}\nTotal Threads: {info['threads']}\n\nRecommended Server Cores: {info['server_cores']}\nRecommended Client Cores: {info['client_cores']}\n\nValues populated into Settings!",
+        )

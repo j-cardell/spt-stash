@@ -42,5 +42,5 @@ def load_mod_meta(staged_path):
             with open(meta_file, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
-            return None
+            pass
     return None

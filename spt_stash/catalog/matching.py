@@ -6,16 +6,16 @@ import re
 import urllib.parse
 import urllib.request
 
-from ..paths import CATALOG_CACHE_FILE
+from .. import paths
 from ..staging.metadata import save_mod_meta
 from .aliases import ALIASES
 
 
 def find_best_catalog_match_global(name):
     catalog_mods = []
-    if CATALOG_CACHE_FILE.exists():
+    if paths.CATALOG_CACHE_FILE.exists():
         try:
-            with open(CATALOG_CACHE_FILE, encoding="utf-8") as f:
+            with open(paths.CATALOG_CACHE_FILE, encoding="utf-8") as f:
                 catalog_mods = json.load(f)
         except Exception:
             catalog_mods = []

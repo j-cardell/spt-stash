@@ -3,17 +3,17 @@
 
 import html
 import os
-import shutil
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
+    QFrame,
     QHBoxLayout,
-    QLineEdit,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -26,18 +26,23 @@ from PySide6.QtWidgets import (
 from ...catalog.dependencies import check_dep_status, fetch_mod_dependencies_sync
 from ...catalog.workers import DependencyFetcherThread, RSSFetcherThread
 from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR
+from ...staging.links import remove_path
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
-from ..widgets import ModItemDelegate, RemoteImageTextBrowser
+from ..theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE, TEXT, TEXT_MUTED, WARNING
+from ..widgets import ModItemDelegate, RemoteImageTextBrowser, SearchField, _nav_pixmap
 
 
 def setup_browse_tab(self):
     layout = QVBoxLayout(self.tab_browse)
+    layout.setContentsMargins(20, 16, 20, 16)
+    layout.setSpacing(12)
 
     filter_layout = QHBoxLayout()
-    self.browse_search = QLineEdit()
-    self.browse_search.setPlaceholderText("Search online mods...")
+    filter_layout.setSpacing(8)
+
+    self.browse_search = SearchField(width=260, placeholder="Search online mods...")
     self.browse_search.textChanged.connect(self.filter_remote_mods)
     filter_layout.addWidget(self.browse_search)
 
@@ -61,18 +66,24 @@ def setup_browse_tab(self):
 
     self.installed_spt_ver = detect_installed_spt_version()
     self.chk_installed_version = QCheckBox(f"Filter for Installed ({self.installed_spt_ver})")
-    self.chk_installed_version.setStyleSheet("font-weight: bold; color: #a6e3a1;")
+    self.chk_installed_version.setStyleSheet(f"font-weight: 600; color: {TEXT_MUTED};")
     self.chk_installed_version.setChecked(True)
     self.chk_installed_version.toggled.connect(self.filter_remote_mods)
     filter_layout.addWidget(self.chk_installed_version)
 
-    btn_fetch = QPushButton("🌐 Refresh Feed")
+    btn_fetch = QPushButton("Refresh")
+    btn_fetch.setIcon(QIcon(_nav_pixmap("refresh", size=14, color=TEXT_MUTED)))
+    btn_fetch.setIconSize(QSize(14, 14))
+    btn_fetch.setProperty("role", "ghost")
+    btn_fetch.setProperty("size", "sm")
+    btn_fetch.setToolTip("Refresh catalog feed")
     btn_fetch.clicked.connect(lambda: self.fetch_remote_mods(force_refresh=True))
     filter_layout.addWidget(btn_fetch)
 
     layout.addLayout(filter_layout)
 
     splitter = QSplitter(Qt.Horizontal)
+    splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {BORDER}; width: 1px; }}")
 
     self.list_remote = QListWidget()
     self.list_remote.setSpacing(4)
@@ -83,39 +94,66 @@ def setup_browse_tab(self):
 
     right_widget = QWidget()
     right_layout = QVBoxLayout(right_widget)
+    right_layout.setContentsMargins(12, 0, 0, 0)
+    right_layout.setSpacing(10)
+
+    # Selected mod action card (always visible at top)
+    self.detail_action_card = QFrame()
+    self.detail_action_card.setStyleSheet(f"""
+        QFrame {{
+            background-color: {SURFACE};
+            border: 1px solid {BORDER};
+            border-radius: 10px;
+            padding: 12px 14px;
+        }}
+        QFrame QLabel {{
+            background: transparent;
+            border: none;
+        }}
+    """)
+    action_layout = QHBoxLayout(self.detail_action_card)
+    action_layout.setContentsMargins(10, 6, 10, 6)
+    action_layout.setSpacing(10)
+
+    self.lbl_detail_title = QLabel("No mod selected")
+    self.lbl_detail_title.setStyleSheet(f"color: {TEXT}; font-size: 13px; font-weight: 600;")
+    action_layout.addWidget(self.lbl_detail_title)
+    action_layout.addStretch()
+
+    self.lbl_detail_size = QLabel("")
+    self.lbl_detail_size.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
+    action_layout.addWidget(self.lbl_detail_size)
+
+    self.btn_download_mod = QPushButton("Install")
+    self.btn_download_mod.setIcon(QIcon(_nav_pixmap("install", size=14, color=BG)))
+    self.btn_download_mod.setIconSize(QSize(14, 14))
+    self.btn_download_mod.setProperty("role", "success")
+    self.btn_download_mod.setProperty("size", "sm")
+    self.btn_download_mod.clicked.connect(self.start_mod_download)
+    self.btn_download_mod.setEnabled(False)
+    action_layout.addWidget(self.btn_download_mod)
+
+    self.btn_open_web = QPushButton("Open Page")
+    self.btn_open_web.setIcon(QIcon(_nav_pixmap("external", size=14, color=TEXT_MUTED)))
+    self.btn_open_web.setIconSize(QSize(14, 14))
+    self.btn_open_web.setProperty("role", "ghost")
+    self.btn_open_web.setProperty("size", "sm")
+    self.btn_open_web.clicked.connect(self.open_mod_in_browser)
+    self.btn_open_web.setEnabled(False)
+    action_layout.addWidget(self.btn_open_web)
+
+    self.detail_action_card.setVisible(False)
+    right_layout.addWidget(self.detail_action_card)
 
     self.web_detail = RemoteImageTextBrowser()
     self.web_detail.setOpenExternalLinks(True)
+    self.web_detail.setStyleSheet(
+        f"background-color: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px; color: {TEXT}; padding: 12px;"
+    )
     right_layout.addWidget(self.web_detail)
 
-    bot_btn_layout = QHBoxLayout()
-
-    btn_style_base = "font-size: 13px; font-weight: bold; padding: 6px 16px; border-radius: 6px; height: 32px;"
-
-    self.btn_download_mod = QPushButton("📥 Download && Install Mod")
-    self.btn_download_mod.setFixedHeight(36)
-    self.btn_download_mod.setStyleSheet("""
-        QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-        QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
-        QPushButton:disabled { background-color: #1e1e2e; color: #585b70; border: 1px solid #313244; }
-    """)
-    self.btn_download_mod.clicked.connect(self.start_mod_download)
-    self.btn_download_mod.setEnabled(False)
-    bot_btn_layout.addWidget(self.btn_download_mod)
-
-    self.btn_open_web = QPushButton("🔗 Open Page on sp-mod.com")
-    self.btn_open_web.setFixedHeight(36)
-    self.btn_open_web.setStyleSheet(
-        f"background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; {btn_style_base}"
-    )
-    self.btn_open_web.clicked.connect(self.open_mod_in_browser)
-    self.btn_open_web.setEnabled(False)
-    bot_btn_layout.addWidget(self.btn_open_web)
-
-    right_layout.addLayout(bot_btn_layout)
-
     splitter.addWidget(right_widget)
-    splitter.setSizes([450, 550])
+    splitter.setSizes([430, 570])
 
     layout.addWidget(splitter)
 
@@ -124,14 +162,18 @@ def setup_browse_tab(self):
 
 def fetch_remote_mods(self, force_refresh=False):
     self.list_remote.clear()
-    self.web_detail.setHtml("<h3>Loading catalog...</h3>")
+    self.web_detail.setHtml(f"<h3 style='color:{TEXT_MUTED}; text-align:center; margin-top:40px;'>Loading catalog...</h3>")
 
     self.rss_thread = RSSFetcherThread(self)
     self.rss_thread.force_refresh = force_refresh
-    self.rss_thread.progress.connect(lambda p: self.web_detail.setHtml(f"<h3>{p}</h3>"))
+    self.rss_thread.progress.connect(
+        lambda p: self.web_detail.setHtml(f"<h3 style='color:{TEXT_MUTED}; text-align:center; margin-top:40px;'>{p}</h3>")
+    )
     self.rss_thread.fetched.connect(self.on_remote_mods_fetched)
     self.rss_thread.error.connect(
-        lambda err: self.web_detail.setHtml(f"<h3 style='color:red;'>Error fetching catalog: {err}</h3>")
+        lambda err: self.web_detail.setHtml(
+            f"<h3 style='color:{DANGER}; text-align:center; margin-top:40px;'>Error fetching catalog: {err}</h3>"
+        )
     )
     self.rss_thread.start()
 
@@ -200,6 +242,16 @@ def filter_remote_mods(self):
         item.setData(Qt.UserRole, mod)
         self.list_remote.addItem(item)
 
+    # Reset detail pane to empty state when filter changes selection.
+    self.list_remote.clearSelection()
+    self.web_detail.setHtml(f"""
+        <div style='color:{TEXT_MUTED}; text-align:center; padding:48px 24px; font-size:14px;'>
+            <div style='font-size:28px; margin-bottom:12px;'></div>
+            <div style='color:{TEXT}; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+            <div>Select a mod from the list to view details, dependencies, and install options.</div>
+        </div>
+    """)
+
 
 def render_mod_detail_html(self, mod):
     creator = html.escape(mod.get("creator", "Community"))
@@ -216,76 +268,75 @@ def render_mod_detail_html(self, mod):
     fika_status = mod.get("fika_status", "Unknown")
     has_ai = mod.get("has_ai", False)
 
+
     guid_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0; width:130px;'><b>GUID:</b></td><td><code style='color:#a6e3a1; font-family:monospace;'>{html.escape(guid)}</code></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>GUID:</b></td><td><code style='color:{SUCCESS}; font-family:monospace;'>{html.escape(guid)}</code></td></tr>"
         if guid
         else ""
     )
     license_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>License:</b></td><td>{html.escape(license_str)}</td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>License:</b></td><td>{html.escape(license_str)}</td></tr>"
         if license_str
         else ""
     )
     src_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>Source Code:</b></td><td><a href='{html.escape(src_code)}' style='color:#89b4fa;'>{html.escape(src_code)}</a></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Source Code:</b></td><td><a href='{html.escape(src_code)}' style='color:{ACCENT};'>{html.escape(src_code)}</a></td></tr>"
         if src_code
         else ""
     )
     vt_html = (
-        f"<tr><td style='color:#a6adc8; padding:4px 0;'><b>VirusTotal:</b></td><td><a href='{html.escape(vt_url)}' style='color:#a6e3a1;'>Clean Scan Results</a></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>VirusTotal:</b></td><td><a href='{html.escape(vt_url)}' style='color:{SUCCESS};'>Clean Scan Results</a></td></tr>"
         if vt_url
         else ""
     )
     ai_html = (
-        "<tr><td style='color:#a6adc8; padding:4px 0;'><b>AI Content:</b></td><td><span style='color:#cba6f7;'>🤖 Includes AI Content</span></td></tr>"
+        f"<tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>AI Content:</b></td><td><span style='color:{ACCENT};'>Includes AI Content</span></td></tr>"
         if has_ai
         else ""
     )
 
     if "Compatible" in fika_status or fika_status == "Yes":
-        fika_badge = "<span style='color:#a6e3a1; font-weight:bold;'>🟢 Fika Compatible Version Available</span>"
+        fika_badge = f"<span style='color:{SUCCESS}; font-weight:bold;'>Fika Compatible Version Available</span>"
     elif "Incompatible" in fika_status or fika_status == "No":
-        fika_badge = "<span style='color:#f38ba8; font-weight:bold;'>🔴 Fika Incompatible</span>"
+        fika_badge = f"<span style='color:{DANGER}; font-weight:bold;'>Fika Incompatible</span>"
     else:
-        fika_badge = "<span style='color:#fab387;'>🟡 Compatibility Unknown</span>"
+        fika_badge = f"<span style='color:{WARNING};'>Compatibility Unknown</span>"
 
-    stats_html = f"📥 {dl_cnt:,} downloads  •  👍 {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
+    stats_html = f" {dl_cnt:,} downloads  •   {end_cnt:,} endorsements" if (dl_cnt or end_cnt) else ""
 
     card_html = f"""
-    <div style='background-color:#181825; border:1px solid #313244; border-radius:12px; padding:16px; margin-bottom:16px;'>
-        <h3 style='color:#89b4fa; margin:0 0 12px 0;'>📋 Mod Details & Author Info</h3>
-        <table style='width:100%; font-size:13px; color:#cdd6f4; border-collapse:collapse;'>
-            <tr><td style='color:#a6adc8; padding:4px 0; width:130px;'><b>Author / Creator:</b></td><td><b style='color:#89b4fa;'>{creator}</b></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Version:</b></td><td><span style='color:#fab387; font-weight:bold;'>v{ver}</span></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Target SPT:</b></td><td><span style='color:#a6e3a1; font-weight:bold;'>{spt_ver}</span></td></tr>
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Category:</b></td><td><span style='background-color:#313244; color:#89dceb; padding:2px 8px; border-radius:4px;'>{cat}</span></td></tr>
+    <div style='background-color:{SURFACE}; border:1px solid {BORDER}; border-radius:8px; padding:14px; margin-bottom:14px;'>
+        <h3 style='color:{TEXT}; margin:0 0 12px 0; font-size:14px;'>Mod Details & Author Info</h3>
+        <table style='width:100%; font-size:12.5px; color:{TEXT}; border-collapse:collapse;'>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0; width:130px;'><b>Author:</b></td><td><b style='color:{ACCENT};'>{creator}</b></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Version:</b></td><td><span style='color:{TEXT}; font-weight:bold;'>v{ver}</span></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Target SPT:</b></td><td><span style='color:{SUCCESS}; font-weight:bold;'>{spt_ver}</span></td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Category:</b></td><td><span style='background-color:rgba(124,140,255,0.12); color:{ACCENT}; padding:2px 8px; border-radius:4px;'>{cat}</span></td></tr>
             {guid_html}
             {license_html}
             {src_html}
             {vt_html}
-            <tr><td style='color:#a6adc8; padding:4px 0;'><b>Fika Status:</b></td><td>{fika_badge}</td></tr>
+            <tr><td style='color:{TEXT_MUTED}; padding:4px 0;'><b>Fika Status:</b></td><td>{fika_badge}</td></tr>
             {ai_html}
-            {"<tr><td style='color:#a6adc8; padding:4px 0;'><b>Stats:</b></td><td>" + stats_html + "</td></tr>" if stats_html else ""}
+            {"<tr><td style='color:" + TEXT_MUTED + "; padding:4px 0;'><b>Stats:</b></td><td>" + stats_html + "</td></tr>" if stats_html else ""}
         </table>
     </div>
     """
     deps = mod.get("dependencies", [])
     dep_html = ""
     if deps:
-        dep_html = "<div style='background-color:#181825; border:1px solid #fab387; border-radius:8px; padding:12px; margin-top:14px;'>"
-        dep_html += f"<h3 style='color:#fab387; margin:0 0 8px 0;'>🔗 Required Dependencies ({len(deps)}):</h3>"
+        dep_html = f"<div style='background-color:{SURFACE}; border:1px solid {BORDER}; border-radius:8px; padding:12px; margin-top:14px;'>"
+        dep_html += f"<h3 style='color:{TEXT}; margin:0 0 8px 0; font-size:14px;'>Required Dependencies ({len(deps)}):</h3>"
         for d in deps:
             st = d.get("status")
             if st == "ENABLED" or d.get("installed"):
-                status_text = "<span style='color:#a6e3a1; font-weight:bold;'>(✅ Installed && Enabled)</span>"
+                status_text = f"<span style='color:{SUCCESS}; font-weight:bold;'>(Installed & Enabled)</span>"
             elif st == "STAGED_DISABLED":
-                status_text = "<span style='color:#fab387; font-weight:bold;'>(⚠️ In Stash, Disabled — Auto-enables on Download)</span>"
+                status_text = f"<span style='color:{WARNING}; font-weight:bold;'>(In Stash, Disabled — Auto-enables on Download)</span>"
             else:
-                status_text = (
-                    "<span style='color:#f38ba8; font-weight:bold;'>(❌ Missing — Auto-installs on Download)</span>"
-                )
+                status_text = f"<span style='color:{DANGER}; font-weight:bold;'>(Missing — Auto-installs on Download)</span>"
 
-            dep_html += f"<p style='margin:4px 0;'>• <b>{d['title']}</b> {status_text}</p>"
+            dep_html += f"<p style='margin:4px 0; color:{TEXT};'>• <b>{d['title']}</b> {status_text}</p>"
         dep_html += "</div>"
 
     return mod.get("description", "") + dep_html + card_html
@@ -296,32 +347,36 @@ def on_remote_mod_selected(self):
     if not items:
         self.btn_open_web.setEnabled(False)
         self.btn_download_mod.setEnabled(False)
+        self.detail_action_card.setVisible(False)
+        self.lbl_detail_title.setText("No mod selected")
+        self.lbl_detail_size.setText("")
+        self.web_detail.setHtml(f"""
+        <div style='color:{TEXT_MUTED}; text-align:center; padding:48px 24px; font-size:14px;'>
+            <div style='color:{TEXT}; font-weight:600; margin-bottom:8px;'>No mod selected</div>
+            <div>Select a mod from the list to view details, dependencies, and install options.</div>
+        </div>
+        """)
         return
 
     mod = items[0].data(Qt.UserRole)
     self.current_selected_remote_mod = mod
     self.btn_open_web.setEnabled(True)
     self.btn_download_mod.setEnabled(True)
+    self.detail_action_card.setVisible(True)
+    self.lbl_detail_title.setText(mod.get("title", "Mod"))
 
     status, _ = check_dep_status(mod.get("title", ""))
     if status == "ENABLED":
-        self.btn_download_mod.setText("⏸ Disable Installed Mod")
-        self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #3a232e; color: #f38ba8; border: 1px solid #542f3e; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #4a2c3b; border-color: #f38ba8; }
-        """)
+        self.btn_download_mod.setText("Disable")
+        self.btn_download_mod.setProperty("role", "danger")
     elif status == "STAGED_DISABLED":
-        self.btn_download_mod.setText("▶ Enable Installed Mod")
-        self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
-        """)
+        self.btn_download_mod.setText("Enable")
+        self.btn_download_mod.setProperty("role", "success")
     else:
-        self.btn_download_mod.setText("📥 Download && Install Mod")
-        self.btn_download_mod.setStyleSheet("""
-            QPushButton { background-color: #27392b; color: #a6e3a1; border: 1px solid #36503c; font-size: 13px; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background-color: #314a38; border-color: #a6e3a1; }
-        """)
+        self.btn_download_mod.setText("Install")
+        self.btn_download_mod.setProperty("role", "success")
+    # Force stylesheet re-apply
+    self.btn_download_mod.setStyleSheet(self.btn_download_mod.styleSheet())
 
     self.web_detail.setHtml(self.render_mod_detail_html(mod))
 
@@ -351,11 +406,8 @@ def start_mod_download(self):
     mod_status, target_path = check_dep_status(mod.get("title", ""))
 
     if mod_status == "ENABLED":
-        if target_path and (target_path.is_symlink() or target_path.exists()):
-            if target_path.is_symlink() or not target_path.is_dir():
-                target_path.unlink()
-            else:
-                shutil.rmtree(target_path)
+        if target_path:
+            remove_path(target_path)
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
@@ -367,21 +419,17 @@ def start_mod_download(self):
             is_server = "server" in str(target_path).lower()
             live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
             live_link = live_dir / target_path.name
-            if live_link.is_symlink() or live_link.exists():
-                if live_link.is_symlink() or not live_link.is_dir():
-                    live_link.unlink()
-                else:
-                    shutil.rmtree(live_link)
+            remove_path(live_link)
             os.symlink(str(target_path), str(live_link))
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
-        QMessageBox.information(self, "Mod Enabled", f"⚡ <b>{mod['title']}</b> is now enabled in your game!")
+        QMessageBox.information(self, "Mod Enabled", f" <b>{mod['title']}</b> is now enabled in your game!")
         return
 
     if "dependencies" not in mod or mod["dependencies"] is None or not mod["dependencies"]:
         self.btn_download_mod.setEnabled(False)
-        self.btn_download_mod.setText("⏳ Checking dependencies...")
+        self.btn_download_mod.setText("Checking dependencies...")
         QApplication.processEvents()
         mod["dependencies"] = fetch_mod_dependencies_sync(mod)
 
@@ -400,7 +448,7 @@ def start_mod_download(self):
         )
         if reply == QMessageBox.Cancel:
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download && Install Mod")
+            self.btn_download_mod.setText("Install")
             return
         if reply == QMessageBox.Yes:
             for dep in staged_disabled_deps:
@@ -408,15 +456,10 @@ def start_mod_download(self):
                 is_server = "server" in str(staged_path).lower()
                 live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
                 live_link = live_dir / staged_path.name
-                if live_link.is_symlink() or live_link.exists():
-                    if live_link.is_symlink() or not live_link.is_dir():
-                        live_link.unlink()
-                    else:
-                        shutil.rmtree(live_link)
+                remove_path(live_link)
                 os.symlink(str(staged_path), str(live_link))
                 dep["status"] = "ENABLED"
                 dep["installed"] = True
-            self.load_installed_mods()
             self.load_installed_mods()
 
     missing_deps = [
@@ -435,7 +478,7 @@ def start_mod_download(self):
         )
         if reply == QMessageBox.Cancel:
             self.btn_download_mod.setEnabled(True)
-            self.btn_download_mod.setText("⬇️ Download && Install Mod")
+            self.btn_download_mod.setText("Install")
             return
         if reply == QMessageBox.Yes:
             self.start_dependency_queue_download(missing_deps, mod)
@@ -450,10 +493,10 @@ def execute_single_mod_download(self, mod):
 
     dl_url = mod.get("download_url") or mod.get("link")
     self.btn_download_mod.setEnabled(False)
-    self.btn_download_mod.setText("⏳ Downloading...")
+    self.btn_download_mod.setText("Downloading...")
 
     self.downloader_thread = ModDownloaderThread(dl_url, mod["title"])
-    self.downloader_thread.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"⏳ {txt}"))
+    self.downloader_thread.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"{txt}"))
     self.downloader_thread.finished.connect(lambda ok, msg, path: self.on_mod_downloaded(ok, msg, path, mod))
     self.downloader_thread.start()
 
@@ -498,10 +541,10 @@ def process_next_dependency_in_queue(self):
     dl_url = dep_mod.get("download_url") or dep_mod.get("link")
 
     self.btn_download_mod.setEnabled(False)
-    self.btn_download_mod.setText(f"⏳ Auto-downloading dependency: {dep_mod['title']}...")
+    self.btn_download_mod.setText(f"Downloading dependency: {dep_mod['title']}...")
 
     self.dep_downloader = ModDownloaderThread(dl_url, dep_mod["title"])
-    self.dep_downloader.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"⏳ {dep_mod['title']}: {txt}"))
+    self.dep_downloader.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"{dep_mod['title']}: {txt}"))
     self.dep_downloader.finished.connect(lambda ok, msg, path: self.on_dependency_downloaded(ok, msg, path, dep_mod))
     self.dep_downloader.start()
 
@@ -512,12 +555,12 @@ def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
             self, "Dependency Download Error", f"Failed to download dependency '{dep_mod['title']}': {message}"
         )
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText("Install")
         return
 
     stage_dialog = StageInstallDialog(archive_path, dep_mod, parent=self)
     if stage_dialog.exec() == QDialog.Accepted:
-        self.btn_download_mod.setText(f"⏳ Installing dependency: {dep_mod['title']}...")
+        self.btn_download_mod.setText(f"Installing dependency: {dep_mod['title']}...")
         self.dep_installer = ModInstallerThread(archive_path, mod_info=dep_mod)
         self.dep_installer.finished.connect(lambda ok, msg: self.on_dependency_installed(ok, msg, archive_path))
         self.dep_installer.start()
@@ -528,9 +571,9 @@ def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
             except Exception:
                 pass
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText("Install")
         self.dep_queue = []
-        self.target_mod_afterdeps = None
+        self.target_mod_after_deps = None
 
 
 def on_dependency_installed(self, success, message, archive_path):
@@ -543,7 +586,7 @@ def on_dependency_installed(self, success, message, archive_path):
     if not success:
         QMessageBox.critical(self, "Dependency Installation Error", f"Failed to install dependency: {message}")
         self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("⬇️ Download && Install Mod")
+        self.btn_download_mod.setText("Install")
         return
 
     self.load_installed_mods()
@@ -552,7 +595,7 @@ def on_dependency_installed(self, success, message, archive_path):
 
 def on_mod_downloaded(self, success, message, archive_path, mod_info):
     self.btn_download_mod.setEnabled(True)
-    self.btn_download_mod.setText("⬇️ Download && Install Mod")
+    self.btn_download_mod.setText("Install")
 
     if not success:
         QMessageBox.critical(self, "Download Error", f"Failed to download mod: {message}")
@@ -560,7 +603,8 @@ def on_mod_downloaded(self, success, message, archive_path, mod_info):
 
     stage_dialog = StageInstallDialog(archive_path, mod_info, parent=self)
     if stage_dialog.exec() == QDialog.Accepted:
-        self.lbl_install_status.setText(f"Installing {mod_info['title']}...")
+        self.btn_download_mod.setEnabled(False)
+        self.btn_download_mod.setText(f"Installing {mod_info['title']}...")
         self.installer_thread = ModInstallerThread(archive_path, mod_info=mod_info)
         self.installer_thread.finished.connect(self.on_mod_installed)
         self.installer_thread.start()
@@ -570,6 +614,22 @@ def on_mod_downloaded(self, success, message, archive_path, mod_info):
                 archive_path.unlink()
             except Exception:
                 pass
+
+
+def on_mod_installed(self, success, message):
+    self.btn_download_mod.setEnabled(True)
+    if not success:
+        QMessageBox.critical(self, "Installation Error", f"Failed to install mod: {message}")
+        return
+
+    if hasattr(self, "load_installed_mods"):
+        self.load_installed_mods()
+    self.list_remote.viewport().update()
+    self.on_remote_mod_selected()
+    if hasattr(self, "toast"):
+        self.toast.success(f"Installed {self.current_selected_remote_mod.get('title', 'mod')} successfully!")
+    else:
+        QMessageBox.information(self, "Installation Complete", f"Mod installed successfully: {message}")
 
 
 def open_mod_in_browser(self):

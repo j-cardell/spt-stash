@@ -36,36 +36,6 @@ class TestSPTModManagerCore(unittest.TestCase):
         self.assertIsNotNone(icon)
         self.assertTrue(icon.exists())
 
-    @classmethod
-    def setUpClass(cls):
-        # Provide self-contained catalog entries for offline unit testing
-        paths.CATALOG_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        mock_catalog = [
-            {
-                "title": "ASBP - Acid's Scalable BepinEx Panel",
-                "creator": "acidphantasm",
-                "version": "1.0.0",
-                "link": "https://sp-mod.com/mod/2931/asbp-acids-scalable-bepinex-panel",
-                "fika_status": "🟢 Compatible"
-            },
-            {
-                "title": "UI Fixes",
-                "creator": "Tyfon",
-                "version": "1.8.0",
-                "link": "https://sp-mod.com/mod/538/ui-fixes",
-                "fika_status": "🟢 Compatible"
-            },
-            {
-                "title": "SAIN - Solarint's AI Modifications - Full AI Package",
-                "creator": "Solarint",
-                "version": "3.0.0",
-                "link": "https://sp-mod.com/mod/123/sain-solarints-ai-modifications",
-                "fika_status": "🟢 Compatible"
-            }
-        ]
-        with open(paths.CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(mock_catalog, f)
-
     def test_version_parsing(self):
         """Test semver tuple parsing and comparison."""
         self.assertEqual(version.parse_version_tuple("v1.8.0"), (1, 8, 0))
@@ -81,17 +51,42 @@ class TestSPTModManagerCore(unittest.TestCase):
 
     def test_catalog_matching_and_aliases(self):
         """Test catalog resolution and alias mappings."""
-        match1 = spt_stash.find_best_catalog_match_global("acidphantasm-bepinexconfigurationmanager")
-        self.assertIsNotNone(match1)
-        self.assertIn("ASBP", match1["title"])
+        # Seed a temporary catalog cache so matching is deterministic.
+        original_catalog_path = spt_stash.paths.CATALOG_CACHE_FILE
+        with tempfile.TemporaryDirectory() as tmpdir:
+            catalog_path = Path(tmpdir) / "catalog.json"
+            catalog_path.write_text(json.dumps([
+                {
+                    "title": "ASBP - Acid's Scalable BepInEx Panel",
+                    "link": "https://sp-mod.com/mod/1/acids-scalable-bepinex-panel",
+                    "creator": "AcidPhantasm",
+                },
+                {
+                    "title": "UI Fixes",
+                    "link": "https://sp-mod.com/mod/2/ui-fixes",
+                    "creator": "Tyfon",
+                },
+                {
+                    "title": "SAIN - Solarint's AI Modifications",
+                    "link": "https://sp-mod.com/mod/3/sain-solarints-ai-modifications",
+                    "creator": "Solarint",
+                },
+            ]), encoding="utf-8")
+            spt_stash.paths.CATALOG_CACHE_FILE = catalog_path
+            try:
+                match1 = spt_stash.find_best_catalog_match_global("acidphantasm-bepinexconfigurationmanager")
+                self.assertIsNotNone(match1)
+                self.assertIn("ASBP", match1["title"])
 
-        match2 = spt_stash.find_best_catalog_match_global("Tyfon.UIFixes.dll")
-        self.assertIsNotNone(match2)
-        self.assertEqual(match2["title"], "UI Fixes")
+                match2 = spt_stash.find_best_catalog_match_global("Tyfon.UIFixes.dll")
+                self.assertIsNotNone(match2)
+                self.assertEqual(match2["title"], "UI Fixes")
 
-        match3 = spt_stash.find_best_catalog_match_global("Solarint-SAIN-ServerMod")
-        self.assertIsNotNone(match3)
-        self.assertIn("SAIN", match3["title"])
+                match3 = spt_stash.find_best_catalog_match_global("Solarint-SAIN-ServerMod")
+                self.assertIsNotNone(match3)
+                self.assertIn("SAIN", match3["title"])
+            finally:
+                spt_stash.paths.CATALOG_CACHE_FILE = original_catalog_path
 
     def test_metadata_load_and_save(self):
         """Test metadata sidecar reading and writing."""
@@ -205,6 +200,27 @@ class TestSPTModManagerCore(unittest.TestCase):
                 self.assertFalse((home / "Games" / "SPT" / ".staged").exists())
             finally:
                 os.environ["HOME"] = old_home or "/home/jon"
+
+    def test_app_stylesheet(self):
+        """Test global QSS stylesheet generation."""
+        from spt_stash.ui.styles import get_app_stylesheet
+        qss = get_app_stylesheet()
+        self.assertIn("#sidebar", qss)
+        self.assertIn("QPushButton[role=\"primary\"]", qss)
+        self.assertIn("QCheckBox", qss)
+
+    def test_main_window_init(self):
+        """Test MainWindow and toast manager initialization in headless Qt."""
+        from PySide6.QtWidgets import QApplication
+        from spt_stash.ui.main_window import SPTModManagerWindow
+        app = QApplication.instance() or QApplication([])
+        win = SPTModManagerWindow()
+        self.assertEqual(win.tabs.count(), 5)
+        self.assertEqual(len(win.nav_buttons), 5)
+        self.assertTrue(hasattr(win, "toast"))
+        # Test toast helper methods
+        win.toast.info("Testing headless toast")
+        win.close()
 
 
 if __name__ == "__main__":
