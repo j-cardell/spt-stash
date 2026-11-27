@@ -3,7 +3,7 @@
 
 import re
 
-__version__ = "1.2.2"  # keep in sync with pyproject.toml
+__version__ = "1.2.3"  # keep in sync with pyproject.toml
 
 
 def parse_version_tuple(ver_str):
