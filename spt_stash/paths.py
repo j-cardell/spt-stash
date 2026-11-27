@@ -20,6 +20,7 @@ CACHE_DIR = Path.home() / ".cache" / "spt-mod-manager"
 CATALOG_CACHE_FILE = CACHE_DIR / "catalog.json"
 IMAGE_CACHE_DIR = CACHE_DIR / "images"
 DOWNLOADS_CACHE_DIR = CACHE_DIR / "downloads"
+SERVER_LOG = CACHE_DIR / "server.log"  # stdout/stderr of the server we start, so crashes are visible
 
 
 def _default_spt_root() -> Path:
