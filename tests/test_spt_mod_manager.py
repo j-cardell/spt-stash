@@ -300,6 +300,25 @@ class TestSPTModManagerCore(unittest.TestCase):
             self.assertEqual(create_backslash_aliases(mod, "database/a.json"), 0)  # idempotent
             self.assertEqual(find_backslash_failures("Could not find file '/nope/x\\y.json'"), [])
 
+    def test_install_game_root_files(self):
+        from spt_stash.staging.workers import install_game_root_files
+
+        with tempfile.TemporaryDirectory() as d:
+            ex, game = Path(d) / "ex", Path(d) / "game"
+            (ex / "EscapeFromTarkov_Data" / "Managed").mkdir(parents=True)
+            (ex / "EscapeFromTarkov_Data" / "Managed" / "New.dll").write_text("new")
+            (ex / "EscapeFromTarkov_Data" / "Managed" / "Old.dll").write_text("from-mod")
+            (ex / "BepInEx" / "plugins" / "M").mkdir(parents=True)
+            (ex / "BepInEx" / "plugins" / "M" / "M.dll").write_text("m")
+            (ex / "README.txt").write_text("r")
+            (game / "EscapeFromTarkov_Data" / "Managed").mkdir(parents=True)
+            (game / "EscapeFromTarkov_Data" / "Managed" / "Old.dll").write_text("original")
+            added = install_game_root_files(ex, game)
+            self.assertEqual(added, ["EscapeFromTarkov_Data/Managed/New.dll"])
+            self.assertEqual((game / "EscapeFromTarkov_Data" / "Managed" / "Old.dll").read_text(), "original")
+            self.assertFalse((game / "README.txt").exists())
+            self.assertFalse((game / "BepInEx").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
