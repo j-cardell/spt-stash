@@ -41,6 +41,35 @@ def normalize_windows_paths(root):
     return fixed
 
 
+# Archive folders (relative to the game root) whose files belong in the game folder, not in the mod stash.
+GAME_ROOT_DIRS = ("EscapeFromTarkov_Data", "BepInEx/patchers")
+
+
+def install_game_root_files(extract_dir, game_root):
+    """Copy files an archive ships for the game folder (e.g. EscapeFromTarkov_Data/Managed/*.dll).
+
+    Dynamic Maps needs Unity.VectorGraphics.dll there. Existing files are never overwritten, and nothing
+    outside GAME_ROOT_DIRS is touched. shortcut: these files aren't tracked per mod, so deleting a mod leaves
+    them behind, add a manifest in .meta.json if that ever matters.
+    Returns the relative paths added.
+    """
+    extract_dir, game_root = Path(extract_dir).resolve(), Path(game_root).resolve()
+    added = []
+    for sub in GAME_ROOT_DIRS:
+        src_root = extract_dir / sub
+        if not src_root.is_dir():
+            continue
+        for src in sorted(p for p in src_root.rglob("*") if p.is_file()):
+            rel = src.relative_to(extract_dir)
+            dest = (game_root / rel).resolve()
+            if game_root not in dest.parents or dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+            added.append(rel.as_posix())
+    return added
+
+
 class ModInstallerThread(QThread):
     finished = Signal(bool, str)
 
@@ -140,6 +169,8 @@ class ModInstallerThread(QThread):
                 self._stage_items(bepin_src, paths.STAGED_CLIENT, paths.CLIENT_MODS_DIR, from_bepin=True)
             if user_mods_src:
                 self._stage_items(user_mods_src, paths.STAGED_SERVER, paths.SERVER_MODS_DIR, temp_extract=temp_extract)
+
+            install_game_root_files(temp_extract, paths.CLIENT_MODS_DIR.parent.parent)
 
             if not bepin_src and not user_mods_src:
                 top_items = [p for p in temp_extract.iterdir() if not p.name.startswith(".")]
