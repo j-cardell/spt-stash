@@ -263,6 +263,23 @@ class TestSPTModManagerCore(unittest.TestCase):
             self.assertTrue((out / "BepInEx" / "plugins" / "Mod" / "Mod.dll").is_file())
             self.assertEqual([p.name for p in out.iterdir()], ["BepInEx"])
 
+    def test_host_argv_flatpak_and_native(self):
+        from unittest import mock
+
+        from spt_stash.system import host
+
+        with mock.patch.object(host, "IN_FLATPAK", False):
+            self.assertEqual(host.host_argv(["echo", Path("/x")], cwd="/c", env={"A": "1"}), ["echo", "/x"])
+            res = host.run(["echo", "hi"], capture_output=True, text=True)
+            self.assertEqual(res.stdout.strip(), "hi")
+            p = host.popen(["sh", "-c", "echo $FOO"], env={"FOO": "bar"}, stdout=-1, text=True)
+            self.assertEqual(p.communicate()[0].strip(), "bar")
+        with mock.patch.object(host, "IN_FLATPAK", True):
+            self.assertEqual(
+                host.host_argv(["server", "--x"], cwd="/g", env={"K": "v"}),
+                ["flatpak-spawn", "--host", "--directory=/g", "--env=K=v", "server", "--x"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

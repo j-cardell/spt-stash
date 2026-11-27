@@ -1,28 +1,43 @@
 app-id: com.sptstash.SPTStash
-runtime: org.freedesktop.Platform
-runtime-version: '23.08'
-sdk: org.freedesktop.Sdk
-command: spt_mod_manager.py
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+base: io.qt.PySide.BaseApp
+base-version: '6.10'
+command: spt-stash
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+
 finish-args:
   - --share=ipc
   - --socket=fallback-x11
   - --socket=wayland
-  - --socket=pulseaudio
+  - --device=dri
   - --share=network
+  # Mod folders live wherever the user installed SPT.
   - --filesystem=host
+  # The app starts/stops the SPT server, launcher and Greed.exe on the host via flatpak-spawn --host.
+  - --talk-name=org.freedesktop.Flatpak
 
 modules:
-  - name: python3-pyside6
+  - name: python-certifi
     buildsystem: simple
     build-commands:
-      - pip3 install --prefix=${FLATPAK_DEST} PySide6
+      - pip3 install --no-index --no-deps --find-links="file://${PWD}" --prefix=${FLATPAK_DEST} certifi
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/6d/39/5eec3296860b94ac20bb8ed807725b88f6adfab3f343df592afd975f5f86/certifi-2026.11.20-py3-none-any.whl
+        sha256: 7422df25243767b9877031a2248cb14d09ddac9beee846f4cef3d5c9191d488f
+
   - name: spt-stash
     buildsystem: simple
     build-commands:
-      - install -D spt_mod_manager.py ${FLATPAK_DEST}/bin/spt_mod_manager.py
-      - cp -r spt_stash ${FLATPAK_DEST}/bin/
-      - cp -r docs ${FLATPAK_DEST}/bin/
-      - chmod +x ${FLATPAK_DEST}/bin/spt_mod_manager.py
+      - mkdir -p ${FLATPAK_DEST}/share/spt-stash
+      - cp -r spt_mod_manager.py spt_stash docs ${FLATPAK_DEST}/share/spt-stash/
+      - install -Dm755 packaging/flatpak/spt-stash ${FLATPAK_DEST}/bin/spt-stash
+      - install -Dm644 packaging/flatpak/com.sptstash.SPTStash.desktop ${FLATPAK_DEST}/share/applications/com.sptstash.SPTStash.desktop
+      - install -Dm644 packaging/flatpak/com.sptstash.SPTStash.metainfo.xml ${FLATPAK_DEST}/share/metainfo/com.sptstash.SPTStash.metainfo.xml
+      - install -Dm644 docs/spt_stash_icon.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/com.sptstash.SPTStash.png
     sources:
       - type: dir
         path: .

@@ -3,7 +3,6 @@
 
 import html
 import re
-import subprocess
 import urllib.parse
 import urllib.request
 
@@ -39,6 +38,7 @@ from ...staging.links import (
 )
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
+from ...system import host
 from ...version import is_version_newer
 from ..theme import ACCENT, BG, BORDER, DANGER, DISABLED_TEXT, SUCCESS, SURFACE, SURFACE_2, TEXT, TEXT_MUTED, WARNING
 from ..widgets import (
@@ -706,7 +706,7 @@ def open_mod_folder(self, mod):
     if staged_p and staged_p.exists():
         folder_to_open = staged_p if staged_p.is_dir() else staged_p.parent
         try:
-            subprocess.Popen(["xdg-open", str(folder_to_open)])
+            host.popen(["xdg-open", folder_to_open])
         except Exception as e:
             QMessageBox.warning(self, "Open Folder Error", f"Could not open file manager: {e}")
 

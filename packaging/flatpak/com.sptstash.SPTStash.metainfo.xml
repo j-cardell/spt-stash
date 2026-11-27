@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.sptstash.SPTStash</id>
+  <name>SPT Stash</name>
+  <summary>Native Linux mod manager for Single-Player Tarkov</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>Install, enable and disable Single-Player Tarkov mods with symlink staging, browse the sp-mod.com Forge, save loadout presets, and apply Linux performance tuning when you start the server or launch the game.</p>
+  </description>
+  <launchable type="desktop-id">com.sptstash.SPTStash.desktop</launchable>
+  <url type="homepage">https://github.com/j-cardell/spt-stash</url>
+  <url type="bugtracker">https://github.com/j-cardell/spt-stash/issues</url>
+</component>

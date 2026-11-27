@@ -2,8 +2,6 @@
 """SPT Stash — main application window with V4 modern sidebar navigation."""
 
 import json
-import os
-import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -25,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from ..config import load_config
 from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
+from ..system import host
 from ..system.hardware import detect_installed_spt_version
 from ..system.process import is_server_running, launch_spt_launcher, perf_launch_spec, running_client_apps, stop_server
 from .dialogs import SettingsDialog
@@ -322,16 +321,13 @@ class SPTModManagerWindow(QMainWindow):
             server_script = Path(cfg.get("server_script", str(spt_root / "server.sh")))
             server_binary = spt_root / "SPT_Runtime" / "SPT.Server.Linux"
 
-            env = os.environ.copy()
-            env.pop("LD_LIBRARY_PATH", None)
             pfx, extra_env = perf_launch_spec(cfg, "server")
-            env.update(extra_env)
 
             launched = False
             if server_script.exists():
                 try:
-                    subprocess.Popen(
-                        [*pfx, str(server_script)], cwd=str(server_script.parent), env=env, start_new_session=True
+                    host.popen(
+                        [*pfx, server_script], cwd=str(server_script.parent), env=extra_env, start_new_session=True
                     )
                     launched = True
                 except Exception as e:
@@ -339,8 +335,8 @@ class SPTModManagerWindow(QMainWindow):
 
             if not launched and server_binary.exists():
                 try:
-                    subprocess.Popen(
-                        [*pfx, str(server_binary)], cwd=str(server_binary.parent), env=env, start_new_session=True
+                    host.popen(
+                        [*pfx, server_binary], cwd=str(server_binary.parent), env=extra_env, start_new_session=True
                     )
                     launched = True
                 except Exception as e:

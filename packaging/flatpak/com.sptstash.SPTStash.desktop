@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SPT Stash
+Comment=Native Linux Mod Manager for Single-Player Tarkov (SPT)
+Exec=spt-stash
+Icon=com.sptstash.SPTStash
+Terminal=false
+Type=Application
+Categories=Game;Utility;

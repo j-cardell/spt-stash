@@ -3,7 +3,6 @@
 
 import html
 import logging
-import os
 import shutil
 import subprocess
 import zipfile
@@ -30,6 +29,7 @@ from ..catalog.dependencies import is_dependency_installed
 from ..config import load_config, save_config
 from ..paths import DOWNLOADS_CACHE_DIR
 from ..staging.links import create_relative_symlink
+from ..system import host
 from ..system.hardware import find_umu_run, find_wine_prefix, get_available_proton_versions
 from .theme import (
     ACCENT,
@@ -277,12 +277,9 @@ class SettingsDialog(QDialog):
 
         umu_run = find_umu_run()
 
-        env = os.environ.copy()
-        env["WINEPREFIX"] = str(prefix_path)
+        env = {"WINEPREFIX": str(prefix_path), "GAMEID": "umu-default"}
         if proton_path and proton_path.exists():
             env["PROTONPATH"] = str(proton_path)
-        env["GAMEID"] = "umu-default"
-        env.pop("LD_LIBRARY_PATH", None)
 
         try:
             if selected_runner == "wine" or not (umu_run and umu_run.exists()):
@@ -290,7 +287,7 @@ class SettingsDialog(QDialog):
             else:
                 cmd = [str(umu_run), str(greed_root)]
 
-            proc = subprocess.Popen(cmd, env=env, cwd=str(spt_root))
+            proc = host.popen(cmd, env=env, cwd=str(spt_root))
             self._watch_greed_launch(proc)
             parent = self.parent()
             runner_name = selected_runner if selected_runner not in ("auto", "wine") else (proton_path.name if proton_path else "Proton")
@@ -321,7 +318,7 @@ class SettingsDialog(QDialog):
 
         def _poll():
             waited["s"] += 0.5
-            started = subprocess.run(["pgrep", "-x", "Greed.exe"], capture_output=True).returncode == 0
+            started = host.run(["pgrep", "-x", "Greed.exe"], capture_output=True).returncode == 0
             if started:
                 _done("Greed.exe is running ✓")
                 QTimer.singleShot(3000, lambda: self.btn_greed.setText(label))

@@ -4,7 +4,6 @@
 import logging
 import re
 import shutil
-import subprocess
 import time
 import urllib.error
 import zipfile
@@ -17,6 +16,7 @@ from ..catalog.dependencies import fetch_mod_dependencies_sync
 from ..catalog.http import urlopen_with_certs
 from ..catalog.matching import find_best_catalog_match_global
 from ..paths import DOWNLOADS_CACHE_DIR
+from ..system import host
 from .links import create_relative_symlink
 from .metadata import load_mod_meta, save_mod_meta
 
@@ -96,7 +96,7 @@ class ModInstallerThread(QThread):
                 with zipfile.ZipFile(self.archive_path, "r") as z:
                     z.extractall(temp_extract)
             elif self.archive_path.suffix.lower() == ".7z":
-                res = subprocess.run(
+                res = host.run(
                     ["7z", "x", "-y", f"-o{temp_extract}", str(self.archive_path)],
                     capture_output=True,
                     text=True,

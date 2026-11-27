@@ -1,0 +1,52 @@
+name: Build Flatpak
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - "com.sptstash.SPTStash.yml"
+      - "packaging/**"
+      - ".github/workflows/flatpak.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-flatpak:
+    name: Build Flatpak bundle
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build
+        run: |
+          flatpak-builder --user --force-clean --disable-rofiles-fuse --install-deps-from=flathub \
+            --repo=repo build-dir com.sptstash.SPTStash.yml
+
+      - name: Create bundle
+        run: flatpak build-bundle repo SPT_Stash-x86_64.flatpak com.sptstash.SPTStash
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPT_Stash-x86_64.flatpak
+          path: SPT_Stash-x86_64.flatpak
+
+      - name: Upload release asset (on tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SPT_Stash-x86_64.flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

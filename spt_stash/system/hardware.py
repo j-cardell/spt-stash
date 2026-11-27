@@ -4,11 +4,10 @@
 import glob
 import os
 import re
-import shutil
-import subprocess
 from pathlib import Path
 
 from ..paths import find_spt_root
+from . import host
 
 
 def detect_cpu_core_allocation():
@@ -50,12 +49,10 @@ def detect_cpu_core_allocation():
 
 def audit_system_dependencies():
     return {
-        "mangohud": shutil.which("mangohud") is not None or Path("/usr/bin/mangohud").exists(),
-        "taskset": shutil.which("taskset") is not None or Path("/usr/bin/taskset").exists(),
-        "vulkan": shutil.which("vulkaninfo") is not None or Path("/usr/bin/vulkaninfo").exists(),
-        "gamemode": shutil.which("gamemoded") is not None
-        or shutil.which("gamemoderun") is not None
-        or Path("/usr/bin/gamemoded").exists(),
+        "mangohud": host.which("mangohud") is not None,
+        "taskset": host.which("taskset") is not None,
+        "vulkan": host.which("vulkaninfo") is not None,
+        "gamemode": host.which("gamemoded") is not None or host.which("gamemoderun") is not None,
     }
 
 
@@ -96,7 +93,7 @@ def detect_installed_spt_version(spt_root=None):
     dll_path = root / "SPT_Runtime" / "SPTarkov.Server.Core.dll"
     if dll_path.exists():
         try:
-            res = subprocess.run(["strings", str(dll_path)], capture_output=True, text=True)
+            res = host.run(["strings", str(dll_path)], capture_output=True, text=True)
             matches = re.findall(r"\b(4\.\d+\.\d+)\b", res.stdout)
             if matches:
                 return f"SPT {matches[0]}"
@@ -190,7 +187,7 @@ def find_umu_run():
     custom_umu = Path.home() / ".local" / "share" / "spt-additions" / "runtime" / "umu-run"
     if custom_umu.exists() and os.access(custom_umu, os.X_OK):
         return custom_umu
-    system_umu = shutil.which("umu-run")
+    system_umu = host.which("umu-run")
     if system_umu:
         return Path(system_umu)
     return None

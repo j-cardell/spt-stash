@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python3 /app/share/spt-stash/spt_mod_manager.py "$@"
