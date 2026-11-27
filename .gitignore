@@ -40,3 +40,8 @@ spt_mod_manager.py.bak
 .idea/
 .hermes/
 *.swp
+
+# Local agent / assistant files (never committed)
+AGENTS.md
+CLAUDE.md
+.claude/

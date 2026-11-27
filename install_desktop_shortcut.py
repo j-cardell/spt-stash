@@ -4,11 +4,11 @@ SPT Stash — Desktop Shortcut & Application Launcher Installer
 Installs system launcher (.desktop) and desktop shortcut for SPT Stash.
 """
 
-import sys
-import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
+
 
 def install_desktop_shortcut():
     print("=" * 50)

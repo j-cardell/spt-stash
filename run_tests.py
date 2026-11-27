@@ -4,11 +4,11 @@ SPT Stash — Automated Test & Linting Suite Runner
 Performs AST syntax validation and executes native unit tests.
 """
 
-import sys
 import os
 import py_compile
 import shutil
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
