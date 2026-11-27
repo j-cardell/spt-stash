@@ -14,7 +14,9 @@ def https_context():
 
 def urlopen_with_certs(url, timeout=8):
     """Open a URL using the certifi CA bundle; falls back to system defaults on SSL errors."""
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)", "Referer": "https://sp-mod.com/"}
+    )  # files.sp-mod.com returns 403 for images without a sp-mod.com Referer
     try:
         return urllib.request.urlopen(req, context=https_context(), timeout=timeout)
     except ssl.SSLError:

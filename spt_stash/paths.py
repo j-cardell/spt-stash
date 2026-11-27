@@ -85,11 +85,14 @@ def find_spt_root() -> Path:
     return Path.home() / "Games" / "SPT"
 
 
-def apply_spt_root(spt_root: Path) -> None:
-    """Point the module-level STAGED_* constants at a new SPT root at startup."""
+def apply_spt_root(spt_root: Path, staged_dir=None) -> None:
+    """Point the module-level path constants at an SPT root (and optional custom staging dir).
+
+    Other modules must read these as `paths.NAME` at call time, never `from paths import NAME`.
+    """
     global STAGED_DIR, STAGED_CLIENT, STAGED_SERVER, CLIENT_MODS_DIR, SERVER_MODS_DIR
     root = Path(spt_root).resolve()
-    STAGED_DIR = (root / ".staged").resolve()
+    STAGED_DIR = Path(staged_dir).expanduser().resolve() if staged_dir else (root / ".staged").resolve()
     STAGED_CLIENT = STAGED_DIR / "client"
     STAGED_SERVER = STAGED_DIR / "server"
     CLIENT_MODS_DIR = client_mods_dir(root)

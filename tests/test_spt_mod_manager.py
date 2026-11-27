@@ -212,8 +212,9 @@ class TestSPTModManagerCore(unittest.TestCase):
     def test_main_window_init(self):
         """Test MainWindow and toast manager initialization in headless Qt."""
         from PySide6.QtWidgets import QApplication
+
         from spt_stash.ui.main_window import SPTModManagerWindow
-        app = QApplication.instance() or QApplication([])
+        self._app = QApplication.instance() or QApplication([])  # keep a reference so Qt does not tear it down
         win = SPTModManagerWindow()
         self.assertEqual(win.tabs.count(), 5)
         self.assertEqual(len(win.nav_buttons), 5)
@@ -221,6 +222,46 @@ class TestSPTModManagerCore(unittest.TestCase):
         # Test toast helper methods
         win.toast.info("Testing headless toast")
         win.close()
+
+    def test_adopt_unmanaged_mods(self):
+        with tempfile.TemporaryDirectory() as d:
+            live, staged = Path(d) / "live", Path(d) / "staged"
+            (live / "ManualMod").mkdir(parents=True)
+            (live / "spt").mkdir()
+            self.assertEqual(links.adopt_unmanaged_mods(staged, live), 1)
+            self.assertTrue((staged / "ManualMod").is_dir())
+            self.assertTrue((live / "ManualMod").is_symlink())
+            self.assertFalse((live / "spt").is_symlink())
+            self.assertEqual(links.adopt_unmanaged_mods(staged, live), 0)
+
+    def test_apply_spt_root_is_seen_by_consumers(self):
+        from spt_stash.catalog import dependencies  # reads paths.STAGED_DIR at call time
+
+        old = (paths.STAGED_DIR, paths.CLIENT_MODS_DIR)
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                paths.apply_spt_root(Path(d), Path(d) / "custom_stash")
+                self.assertEqual(paths.STAGED_DIR, (Path(d) / "custom_stash").resolve())
+                self.assertEqual(paths.CLIENT_MODS_DIR, Path(d).resolve() / "BepInEx" / "plugins")
+                self.assertIs(dependencies.paths, paths)
+        finally:
+            paths.STAGED_DIR, paths.CLIENT_MODS_DIR = old
+
+    def test_normalize_windows_paths(self):
+        import zipfile
+
+        from spt_stash.staging.workers import normalize_windows_paths
+
+        with tempfile.TemporaryDirectory() as d:
+            zp, out = Path(d) / "m.zip", Path(d) / "out"
+            with zipfile.ZipFile(zp, "w") as z:
+                z.writestr("BepInEx\\plugins\\", "")
+                z.writestr("BepInEx\\plugins\\Mod\\Mod.dll", "x")
+            with zipfile.ZipFile(zp) as z:
+                z.extractall(out)
+            self.assertEqual(normalize_windows_paths(out), 1)
+            self.assertTrue((out / "BepInEx" / "plugins" / "Mod" / "Mod.dll").is_file())
+            self.assertEqual([p.name for p in out.iterdir()], ["BepInEx"])
 
 
 if __name__ == "__main__":

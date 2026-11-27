@@ -36,17 +36,18 @@ class RSSFetcherThread(QThread):
             mods = []
             seen = set()
 
-            for page in range(1, 15):
+            complete = False
+            for page in range(1, 200):  # safety cap only; the loop ends on the first short/empty page
                 url = f"https://sp-mod.com/mods?perPage=50&page={page}"
                 try:
                     raw_html = urlopen_with_certs(url, timeout=8).read().decode("utf-8")
                 except Exception as e:
-                    if page == 1:
-                        self.error.emit(f"Catalog fetch failed: {e}")
+                    self.error.emit(f"Catalog fetch failed on page {page}: {e}")
                     break
 
                 blocks = raw_html.split('href="https://sp-mod.com/mod/')[1:]
                 if not blocks:
+                    complete = True
                     break
 
                 for b in blocks:
@@ -127,10 +128,13 @@ class RSSFetcherThread(QThread):
 
                 self.progress.emit(f"Updating online catalog... ({len(mods)} mods found)")
                 if len(blocks) < 50:
+                    complete = True
                     break
 
-            with open(paths.CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(mods, f, indent=2)
+            # Never cache a truncated catalog, or it would be served as "complete" until the next manual refresh.
+            if complete:
+                with open(paths.CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(mods, f, indent=2)
 
             self.fetched.emit(mods)
         except Exception as e:

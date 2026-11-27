@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SPT Stash — application dialogs (Settings, StageInstall, SavePreset) with V4 styling."""
 
+import html
 import logging
 import os
 import shutil
@@ -8,7 +9,7 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-from PySide6.QtCore import QSize, QUrl
+from PySide6.QtCore import QSize, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QFont, QIcon
 from PySide6.QtWidgets import (
     QComboBox,
@@ -114,6 +115,16 @@ class SettingsDialog(QDialog):
             self.browse_server_script,
         )
 
+        self.txt_prefix = QLineEdit(self.cfg.get("wine_prefix", ""))
+        self.txt_prefix.setPlaceholderText("Auto-detect")
+        _row(
+            "Wine / Proton Prefix (optional):",
+            "Existing prefix to run Greed.exe in (e.g. one that already has .NET Desktop Runtime), or a folder "
+            "where a new one will be created. Leave blank to auto-detect.",
+            self.txt_prefix,
+            self.browse_prefix_folder,
+        )
+
         self.txt_launcher = QLineEdit(self.cfg.get("launcher_script", ""))
         self.txt_launcher.setToolTip("Executable path to launcher.sh or SPT.Launcher.exe.")
         _row(
@@ -157,16 +168,16 @@ class SettingsDialog(QDialog):
         btn_desktop.clicked.connect(self.create_desktop_shortcut)
         btn_box.addWidget(btn_desktop)
 
-        btn_greed = QPushButton("Launch Greed.exe (SVM)")
-        btn_greed.setIcon(QIcon(_nav_pixmap("performance", size=14, color=TEXT_MUTED)))
-        btn_greed.setIconSize(QSize(14, 14))
-        btn_greed.setProperty("role", "ghost")
-        btn_greed.setProperty("size", "sm")
-        btn_greed.setToolTip(
+        self.btn_greed = QPushButton("Launch Greed.exe (SVM)")
+        self.btn_greed.setIcon(QIcon(_nav_pixmap("performance", size=14, color=TEXT_MUTED)))
+        self.btn_greed.setIconSize(QSize(14, 14))
+        self.btn_greed.setProperty("role", "ghost")
+        self.btn_greed.setProperty("size", "sm")
+        self.btn_greed.setToolTip(
             "Launch Greed.exe (SVM Configurator) safely inside your SPT Wine Prefix (~/Games/SPT-Prefix)."
         )
-        btn_greed.clicked.connect(self.launch_greed_exe)
-        btn_box.addWidget(btn_greed)
+        self.btn_greed.clicked.connect(self.launch_greed_exe)
+        btn_box.addWidget(self.btn_greed)
 
         btn_box.addStretch()
 
@@ -248,7 +259,7 @@ class SettingsDialog(QDialog):
                         parent.browse_search.setText("Server Value Modifier")
             return
 
-        prefix_path = find_wine_prefix(spt_root)
+        prefix_path = find_wine_prefix(spt_root, self.txt_prefix.text())
         available_protons = get_available_proton_versions()
         selected_runner = self.combo_proton.currentData() if hasattr(self, "combo_proton") else self.cfg.get("proton_runner", "auto")
 
@@ -279,7 +290,8 @@ class SettingsDialog(QDialog):
             else:
                 cmd = [str(umu_run), str(greed_root)]
 
-            subprocess.Popen(cmd, env=env, cwd=str(spt_root))
+            proc = subprocess.Popen(cmd, env=env, cwd=str(spt_root))
+            self._watch_greed_launch(proc)
             parent = self.parent()
             runner_name = selected_runner if selected_runner not in ("auto", "wine") else (proton_path.name if proton_path else "Proton")
             if parent and hasattr(parent, "toast"):
@@ -294,6 +306,31 @@ class SettingsDialog(QDialog):
                 )
         except Exception as e:
             QMessageBox.critical(self, "Error Launching Greed.exe", f"Failed to launch Greed.exe: {e}")
+
+    def _watch_greed_launch(self, proc, timeout_s=60):
+        """Show 'Launching...' while umu/Proton spins up; restore once Greed.exe is running (or on exit/timeout)."""
+        label = "Launch Greed.exe (SVM)"
+        self.btn_greed.setEnabled(False)
+        self.btn_greed.setText("Launching… (first start can take a while)")
+        waited = {"s": 0.0}
+
+        def _done(text=label):
+            timer.stop()
+            self.btn_greed.setText(text)
+            self.btn_greed.setEnabled(True)
+
+        def _poll():
+            waited["s"] += 0.5
+            started = subprocess.run(["pgrep", "-x", "Greed.exe"], capture_output=True).returncode == 0
+            if started:
+                _done("Greed.exe is running ✓")
+                QTimer.singleShot(3000, lambda: self.btn_greed.setText(label))
+            elif proc.poll() is not None or waited["s"] >= timeout_s:
+                _done()
+
+        timer = QTimer(self)
+        timer.timeout.connect(_poll)
+        timer.start(500)
 
     def browse_spt_folder(self):
         dir_path = QFileDialog.getExistingDirectory(self, "Select SPT Installation Folder", self.txt_spt.text())
@@ -311,6 +348,11 @@ class SettingsDialog(QDialog):
         )
         if file_path:
             self.txt_server.setText(file_path)
+
+    def browse_prefix_folder(self):
+        dir_path = QFileDialog.getExistingDirectory(self, "Select Wine/Proton Prefix", self.txt_prefix.text())
+        if dir_path:
+            self.txt_prefix.setText(dir_path)
 
     def browse_launcher_script(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -338,6 +380,7 @@ class SettingsDialog(QDialog):
         self.cfg["staged_dir"] = staged
         self.cfg["server_script"] = server
         self.cfg["launcher_script"] = launcher
+        self.cfg["wine_prefix"] = self.txt_prefix.text().strip()
         self.cfg["proton_runner"] = self.combo_proton.currentData()
         save_config(self.cfg)
         self.accept()
@@ -364,7 +407,8 @@ class StageInstallDialog(QDialog):
         layout.setSpacing(12)
 
         lbl_header = QLabel(
-            f"<b>Mod:</b> {{mod_info['title']}} <span style='color:{ACCENT};'>v{{mod_info.get('version', '')}}</span>"
+            f"<b>Mod:</b> {html.escape(str(mod_info['title']))} "
+            f"<span style='color:{ACCENT};'>v{html.escape(str(mod_info.get('version', '')))}</span>"
         )
         lbl_header.setFont(QFont("Ubuntu", 14, QFont.Bold))
         layout.addWidget(lbl_header)

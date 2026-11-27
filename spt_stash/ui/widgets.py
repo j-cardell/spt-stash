@@ -2,7 +2,6 @@
 """SPT Stash — small reusable UI widgets."""
 
 import math
-import urllib.request
 from pathlib import Path
 
 from PySide6.QtCore import Property, QEasingCurve, QPointF, QPropertyAnimation, QRectF, QSize, Qt, QTimer, Signal
@@ -21,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..catalog.dependencies import check_dep_status
+from ..catalog.http import urlopen_with_certs
 from ..paths import IMAGE_CACHE_DIR
 from .theme import (
     ACCENT,
@@ -365,8 +365,7 @@ class RemoteImageTextBrowser(QTextBrowser):
                         return img
 
                 try:
-                    req = urllib.request.Request(url_str, headers={"User-Agent": "Mozilla/5.0"})
-                    data = urllib.request.urlopen(req, timeout=5).read()
+                    data = urlopen_with_certs(url_str, timeout=5).read()
                     img = QImage()
                     if img.loadFromData(data):
                         img.save(str(local_path))

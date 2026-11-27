@@ -10,7 +10,7 @@ from .hardware import (
     find_wine_prefix,
     get_available_proton_versions,
 )
-from .process import is_server_running, launch_spt_launcher, start_server, stop_server
+from .process import is_server_running, launch_spt_launcher, perf_launch_spec, start_server, stop_server
 
 __all__ = [
     "audit_system_dependencies",
@@ -22,6 +22,7 @@ __all__ = [
     "get_available_proton_versions",
     "is_server_running",
     "launch_spt_launcher",
+    "perf_launch_spec",
     "start_server",
     "stop_server",
 ]

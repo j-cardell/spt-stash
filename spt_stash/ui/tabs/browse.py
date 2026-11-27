@@ -2,9 +2,8 @@
 """SPT Stash — Browse sp-mod.com Forge Catalog tab."""
 
 import html
-import os
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -23,10 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ... import paths
 from ...catalog.dependencies import check_dep_status, fetch_mod_dependencies_sync
 from ...catalog.workers import DependencyFetcherThread, RSSFetcherThread
-from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR
-from ...staging.links import remove_path
+from ...staging.links import create_relative_symlink
 from ...staging.workers import ModDownloaderThread, ModInstallerThread
 from ...system.hardware import detect_installed_spt_version
 from ..dialogs import StageInstallDialog
@@ -406,8 +405,17 @@ def start_mod_download(self):
     mod_status, target_path = check_dep_status(mod.get("title", ""))
 
     if mod_status == "ENABLED":
-        if target_path:
-            remove_path(target_path)
+        # Only ever unlink; a real (non-symlink) folder is the user's data and is never deleted from here.
+        if target_path and target_path.is_symlink():
+            target_path.unlink()
+        elif target_path:
+            QMessageBox.warning(
+                self,
+                "Cannot Disable",
+                f"<b>{mod['title']}</b> is installed manually at <code>{target_path}</code>.<br>"
+                "Open the Installed tab to manage it.",
+            )
+            return
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
@@ -417,10 +425,9 @@ def start_mod_download(self):
     if mod_status == "STAGED_DISABLED":
         if target_path:
             is_server = "server" in str(target_path).lower()
-            live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
+            live_dir = paths.SERVER_MODS_DIR if is_server else paths.CLIENT_MODS_DIR
             live_link = live_dir / target_path.name
-            remove_path(live_link)
-            os.symlink(str(target_path), str(live_link))
+            create_relative_symlink(target_path, live_link)
         self.load_installed_mods()
         self.list_remote.viewport().update()
         self.on_remote_mod_selected()
@@ -454,10 +461,9 @@ def start_mod_download(self):
             for dep in staged_disabled_deps:
                 staged_path = dep["path"]
                 is_server = "server" in str(staged_path).lower()
-                live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
+                live_dir = paths.SERVER_MODS_DIR if is_server else paths.CLIENT_MODS_DIR
                 live_link = live_dir / staged_path.name
-                remove_path(live_link)
-                os.symlink(str(staged_path), str(live_link))
+                create_relative_symlink(staged_path, live_link)
                 dep["status"] = "ENABLED"
                 dep["installed"] = True
             self.load_installed_mods()
@@ -496,7 +502,9 @@ def execute_single_mod_download(self, mod):
     self.btn_download_mod.setText("Downloading...")
 
     self.downloader_thread = ModDownloaderThread(dl_url, mod["title"])
-    self.downloader_thread.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"{txt}"))
+    self.downloader_thread.progress.connect(
+        lambda p, txt: self.show_download_progress(f"{mod['title']}: {txt}", p)
+    )
     self.downloader_thread.finished.connect(lambda ok, msg, path: self.on_mod_downloaded(ok, msg, path, mod))
     self.downloader_thread.start()
 
@@ -525,6 +533,7 @@ def start_dependency_queue_download(self, missing_deps, target_mod):
                 }
             )
 
+    self.dep_total = len(self.dep_queue)
     self.target_mod_after_deps = target_mod
     self.process_next_dependency_in_queue()
 
@@ -535,6 +544,12 @@ def process_next_dependency_in_queue(self):
             target = self.target_mod_after_deps
             self.target_mod_after_deps = None
             self.execute_single_mod_download(target)
+        else:
+            self.btn_download_mod.setEnabled(True)
+            self.btn_download_mod.setText("Install")
+            self.hide_download_progress()
+            self.load_installed_mods()
+            self.toast.success("All downloads installed")
         return
 
     dep_mod = self.dep_queue.pop(0)
@@ -544,12 +559,16 @@ def process_next_dependency_in_queue(self):
     self.btn_download_mod.setText(f"Downloading dependency: {dep_mod['title']}...")
 
     self.dep_downloader = ModDownloaderThread(dl_url, dep_mod["title"])
-    self.dep_downloader.progress.connect(lambda p, txt: self.btn_download_mod.setText(f"{dep_mod['title']}: {txt}"))
+    position = f"({self.dep_total - len(self.dep_queue)}/{self.dep_total}) "
+    self.dep_downloader.progress.connect(
+        lambda p, txt: self.show_download_progress(f"{position}{dep_mod['title']}: {txt}", p)
+    )
     self.dep_downloader.finished.connect(lambda ok, msg, path: self.on_dependency_downloaded(ok, msg, path, dep_mod))
     self.dep_downloader.start()
 
 
 def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
+    self.hide_download_progress()
     if not success:
         QMessageBox.critical(
             self, "Dependency Download Error", f"Failed to download dependency '{dep_mod['title']}': {message}"
@@ -558,22 +577,12 @@ def on_dependency_downloaded(self, success, message, archive_path, dep_mod):
         self.btn_download_mod.setText("Install")
         return
 
-    stage_dialog = StageInstallDialog(archive_path, dep_mod, parent=self)
-    if stage_dialog.exec() == QDialog.Accepted:
-        self.btn_download_mod.setText(f"Installing dependency: {dep_mod['title']}...")
-        self.dep_installer = ModInstallerThread(archive_path, mod_info=dep_mod)
-        self.dep_installer.finished.connect(lambda ok, msg: self.on_dependency_installed(ok, msg, archive_path))
-        self.dep_installer.start()
-    else:
-        if archive_path and archive_path.exists():
-            try:
-                archive_path.unlink()
-            except Exception:
-                pass
-        self.btn_download_mod.setEnabled(True)
-        self.btn_download_mod.setText("Install")
-        self.dep_queue = []
-        self.target_mod_after_deps = None
+    # Queued installs (dependencies, presets, updates) were already confirmed up front; no per-mod dialog.
+    self.btn_download_mod.setText(f"Installing: {dep_mod['title']}...")
+    self.show_download_progress(f"({self.dep_total - len(self.dep_queue)}/{self.dep_total}) Installing {dep_mod['title']}...")
+    self.dep_installer = ModInstallerThread(archive_path, mod_info=dep_mod)
+    self.dep_installer.finished.connect(lambda ok, msg: self.on_dependency_installed(ok, msg, archive_path))
+    self.dep_installer.start()
 
 
 def on_dependency_installed(self, success, message, archive_path):
@@ -584,16 +593,18 @@ def on_dependency_installed(self, success, message, archive_path):
             pass
 
     if not success:
+        self.hide_download_progress()
         QMessageBox.critical(self, "Dependency Installation Error", f"Failed to install dependency: {message}")
         self.btn_download_mod.setEnabled(True)
         self.btn_download_mod.setText("Install")
         return
 
     self.load_installed_mods()
-    self.process_next_dependency_in_queue()
+    QTimer.singleShot(1500, self.process_next_dependency_in_queue)  # space out requests to avoid 429s
 
 
 def on_mod_downloaded(self, success, message, archive_path, mod_info):
+    self.hide_download_progress()
     self.btn_download_mod.setEnabled(True)
     self.btn_download_mod.setText("Install")
 
@@ -605,8 +616,9 @@ def on_mod_downloaded(self, success, message, archive_path, mod_info):
     if stage_dialog.exec() == QDialog.Accepted:
         self.btn_download_mod.setEnabled(False)
         self.btn_download_mod.setText(f"Installing {mod_info['title']}...")
+        self.show_download_progress(f"Installing {mod_info['title']}...")
         self.installer_thread = ModInstallerThread(archive_path, mod_info=mod_info)
-        self.installer_thread.finished.connect(self.on_mod_installed)
+        self.installer_thread.finished.connect(self.on_remote_mod_installed)
         self.installer_thread.start()
     else:
         if archive_path and archive_path.exists():
@@ -616,7 +628,8 @@ def on_mod_downloaded(self, success, message, archive_path, mod_info):
                 pass
 
 
-def on_mod_installed(self, success, message):
+def on_remote_mod_installed(self, success, message):
+    self.hide_download_progress()
     self.btn_download_mod.setEnabled(True)
     if not success:
         QMessageBox.critical(self, "Installation Error", f"Failed to install mod: {message}")

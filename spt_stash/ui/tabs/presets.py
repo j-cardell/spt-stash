@@ -24,21 +24,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ... import paths
 from ...catalog.dependencies import check_dep_status
 from ...catalog.matching import find_best_catalog_match_global
 from ...manifest import generate_html_stash_manifest
-from ...paths import (
-    CATALOG_CACHE_FILE,
-    CLIENT_MODS_DIR,
-    PRESETS_DIR,
-    SERVER_MODS_DIR,
-    STAGED_CLIENT,
-    STAGED_SERVER,
-)
+from ...paths import CATALOG_CACHE_FILE, PRESETS_DIR
 from ...staging.links import create_relative_symlink
 from ...staging.metadata import load_mod_meta
 from ..dialogs import SavePresetDialog
-from ..theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE, SURFACE_2, TEXT, TEXT_MUTED
+from ..theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE, SURFACE_2, TEXT, TEXT_MUTED, WARNING
 from ..widgets import _nav_pixmap
 
 
@@ -267,8 +261,8 @@ def on_preset_selected(self):
             is_staged = True
         else:
             is_server = "server" in m_type_raw.lower()
-            target_game_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
-            target_staged_dir = STAGED_SERVER if is_server else STAGED_CLIENT
+            target_game_dir = paths.SERVER_MODS_DIR if is_server else paths.CLIENT_MODS_DIR
+            target_staged_dir = paths.STAGED_SERVER if is_server else paths.STAGED_CLIENT
 
             is_enabled = (target_game_dir / m_name).exists() or (target_game_dir / m_name).is_symlink()
             is_staged = (target_staged_dir / m_name).exists()
@@ -279,11 +273,11 @@ def on_preset_selected(self):
                 is_staged = st == "STAGED_DISABLED" or is_enabled
 
         if is_enabled:
-            st_badge = "<span style='color:{SUCCESS}; font-weight:600;'> Enabled</span>"
+            st_badge = f"<span style='color:{SUCCESS}; font-weight:600;'> Enabled</span>"
         elif is_staged:
-            st_badge = "<span style='color:{WARNING}; font-weight:600;'> Disabled in Stash</span>"
+            st_badge = f"<span style='color:{WARNING}; font-weight:600;'> Disabled in Stash</span>"
         else:
-            st_badge = "<span style='color:{DANGER}; font-weight:600;'> Missing</span>"
+            st_badge = f"<span style='color:{DANGER}; font-weight:600;'> Missing</span>"
 
         link_html = (
             f"<a href='{html.escape(m_link)}' style='color:{ACCENT}; text-decoration:none;'>View</a>" if m_link else "Local"
@@ -330,7 +324,11 @@ def on_preset_selected(self):
     </body>
     </html>
     """
+    # setHtml resets scrolling, and this re-renders every time a mod is enabled/installed.
+    bar = self.web_preset_detail.verticalScrollBar()
+    pos = bar.value()
     self.web_preset_detail.setHtml(html_content)
+    bar.setValue(pos)
 
 
 def create_preset_from_stash(self):
@@ -405,14 +403,22 @@ def apply_selected_preset(self):
     if reply != QMessageBox.Yes:
         return
 
+    # Presets store the grouped mod name (a title, not a folder name), so resolve through the installed groups.
+    installed_groups = {inst["name"].lower(): inst for inst in getattr(self, "all_installed_mods", [])}
+
+    def _find_group(m):
+        for key in (m.get("name", ""), m.get("title", "")):
+            if key and key.lower() in installed_groups:
+                return installed_groups[key.lower()]
+        return None
+
     missing_mods = []
     for m in preset_mods:
         m_name = m.get("name", "")
-        m_type = m.get("type", "Mod")
-        is_server = "server" in m_type.lower()
-        target_staged_dir = STAGED_SERVER if is_server else STAGED_CLIENT
+        is_server = "server" in m.get("type", "Mod").lower()
+        target_staged_dir = paths.STAGED_SERVER if is_server else paths.STAGED_CLIENT
 
-        if not (target_staged_dir / m_name).exists():
+        if not _find_group(m) and not (target_staged_dir / m_name).exists():
             missing_mods.append(m)
 
     if missing_mods:
@@ -443,26 +449,27 @@ def apply_selected_preset(self):
                 )
                 return
 
-    for f in CLIENT_MODS_DIR.iterdir():
-        if f.is_symlink():
-            f.unlink()
-    for f in SERVER_MODS_DIR.iterdir():
-        if f.is_symlink():
-            f.unlink()
+    for live_dir in (paths.CLIENT_MODS_DIR, paths.SERVER_MODS_DIR):
+        if live_dir.is_dir():
+            for f in live_dir.iterdir():
+                if f.is_symlink():
+                    f.unlink()
 
     enabled_count = 0
     for m in preset_mods:
+        group = _find_group(m)
+        if group:
+            for item, live_link, _ in group.get("client_items", []) + group.get("server_items", []):
+                create_relative_symlink(item, live_link)
+                enabled_count += 1
+            continue
+
+        # Legacy presets that stored raw folder names
         m_name = m.get("name", "")
-        m_type = m.get("type", "Mod")
-        is_server = "server" in m_type.lower()
-
-        if is_server:
-            staged_p = STAGED_SERVER / m_name
-            live_p = SERVER_MODS_DIR / m_name
+        if "server" in m.get("type", "Mod").lower():
+            staged_p, live_p = paths.STAGED_SERVER / m_name, paths.SERVER_MODS_DIR / m_name
         else:
-            staged_p = STAGED_CLIENT / m_name
-            live_p = CLIENT_MODS_DIR / m_name
-
+            staged_p, live_p = paths.STAGED_CLIENT / m_name, paths.CLIENT_MODS_DIR / m_name
         if staged_p.exists():
             create_relative_symlink(staged_p, live_p)
             enabled_count += 1

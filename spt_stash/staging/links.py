@@ -23,6 +23,7 @@ def create_relative_symlink(src_staged, dst_live):
     """Create dst_live → src_staged as a relative in-tree symlink (abs fallback)."""
     src = Path(src_staged).resolve()
     dst = Path(dst_live)
+    dst.parent.mkdir(parents=True, exist_ok=True)
     remove_path(dst)
 
     try:
@@ -61,3 +62,32 @@ def purge_mod_files_and_symlinks(mod_data):
             (paths.STAGED_SERVER, paths.SERVER_MODS_DIR),
         ]:
             _purge_single(base_staged / mod_name, base_live / mod_name)
+
+
+# SPT's own client plugins live in BepInEx/plugins/spt — never adopt (disabling it breaks the game).
+_PROTECTED_LIVE = {"spt"}
+
+
+def adopt_unmanaged_mods(staged_dir, live_dir):
+    """Move manually installed mods (real files/dirs in live_dir) into staged_dir and symlink them back.
+
+    Makes hand-installed mods show up in the Installed tab. Returns the number adopted.
+    """
+    staged_dir, live_dir = Path(staged_dir), Path(live_dir)
+    if not live_dir.is_dir():
+        return 0
+    staged_dir.mkdir(parents=True, exist_ok=True)
+    adopted = 0
+    for item in live_dir.iterdir():
+        if item.is_symlink() or item.name.startswith(".") or item.name.lower() in _PROTECTED_LIVE:
+            continue
+        target = staged_dir / item.name
+        if target.exists():
+            continue  # name clash: leave the live copy alone rather than overwrite either side
+        try:
+            shutil.move(str(item), str(target))
+            create_relative_symlink(target, item)
+            adopted += 1
+        except OSError as e:
+            print(f"Could not adopt {item}: {e}")
+    return adopted
