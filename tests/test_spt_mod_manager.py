@@ -274,6 +274,15 @@ class TestSPTModManagerCore(unittest.TestCase):
         self.assertIsNone(newer_release({"tag_name": "v1.2.1"}, "1.2.2"))
         self.assertIsNone(newer_release({}, "1.2.2"))
 
+    def test_log_tail(self):
+        from spt_stash.system.process import log_tail
+
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "s.log"
+            f.write_text("a\n\nb\nc\n", encoding="utf-8")
+            self.assertEqual(log_tail(f, 2), "b\nc")
+            self.assertEqual(log_tail(Path(d) / "missing.log"), "")
+
 
 if __name__ == "__main__":
     unittest.main()

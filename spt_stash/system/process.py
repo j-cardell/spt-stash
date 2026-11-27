@@ -124,3 +124,12 @@ def launch_spt_launcher(launcher_script, extra_args=None, env_overrides=None, cm
     env = {**os.environ, **(env_overrides or {})}
     env.pop("LD_LIBRARY_PATH", None)
     return subprocess.Popen(cmd, cwd=str(launcher_script.parent), env=env)
+
+
+def log_tail(path, lines=14):
+    """Last non-empty lines of a text log ('' if it can't be read)."""
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return "\n".join([ln for ln in text.splitlines() if ln.strip()][-lines:])

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SPT Stash — main application window with V4 modern sidebar navigation."""
 
+import html
 import json
 import os
 import subprocess
@@ -23,11 +24,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..catalog.updates import AppUpdateCheckThread
+from .. import paths
+from ..catalog.updates import AppUpdateChecker
 from ..config import load_config
 from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
 from ..system.hardware import detect_installed_spt_version
-from ..system.process import is_server_running, launch_spt_launcher, perf_launch_spec, running_client_apps, stop_server
+from ..system.process import (
+    is_server_running,
+    launch_spt_launcher,
+    log_tail,
+    perf_launch_spec,
+    running_client_apps,
+    stop_server,
+)
 from ..version import __version__
 from .dialogs import SettingsDialog
 from .styles import get_app_stylesheet
@@ -72,9 +81,9 @@ class SPTModManagerWindow(QMainWindow):
     def _check_for_app_update(self):
         if not load_config().get("check_app_updates", True):  # opt out: set to false in config.json
             return
-        self.update_thread = AppUpdateCheckThread(self)
-        self.update_thread.found.connect(self._on_app_update_found)
-        self.update_thread.start()
+        self.update_checker = AppUpdateChecker(self)
+        self.update_checker.found.connect(self._on_app_update_found)
+        self.update_checker.start()
 
     def _on_app_update_found(self, tag, url):
         self.btn_update.setText(f"Update available: {tag}")
@@ -338,6 +347,7 @@ class SPTModManagerWindow(QMainWindow):
                 box.exec()
                 if box.clickedButton() is cancel:
                     return
+            self._server_stop_requested = True
             stop_server()
             self.toast.error(" Stopping SPT Server...")
             self._await_server_stop(attempts=40)
@@ -352,31 +362,51 @@ class SPTModManagerWindow(QMainWindow):
             pfx, extra_env = perf_launch_spec(cfg, "server")
             env.update(extra_env)
 
+            self._server_stop_requested = False
+            log = open(paths.SERVER_LOG, "wb")
+            popen_kw = {"env": env, "start_new_session": True, "stdin": subprocess.DEVNULL, "stdout": log, "stderr": log}
+            proc = None
             launched = False
             if server_script.exists():
                 try:
-                    subprocess.Popen(
-                        [*pfx, str(server_script)], cwd=str(server_script.parent), env=env, start_new_session=True
-                    )
+                    proc = subprocess.Popen([*pfx, str(server_script)], cwd=str(server_script.parent), **popen_kw)
                     launched = True
                 except Exception as e:
                     print(f"Failed launching server.sh: {e}")
 
             if not launched and server_binary.exists():
                 try:
-                    subprocess.Popen(
-                        [*pfx, str(server_binary)], cwd=str(server_binary.parent), env=env, start_new_session=True
-                    )
+                    proc = subprocess.Popen([*pfx, str(server_binary)], cwd=str(server_binary.parent), **popen_kw)
                     launched = True
                 except Exception as e:
                     print(f"Failed launching SPT.Server.Linux directly: {e}")
 
+            log.close()  # the child keeps its own handle
             if launched:
                 self.toast.success("Starting SPT Server...")
+                self._watch_server_start(proc)
             else:
                 self.show_missing_script_dialog("server.sh", server_script)
 
             QTimer.singleShot(1500, self.check_server_status)
+
+    def _watch_server_start(self, proc, attempts=20):
+        """If the server we just started dies within ~20s (and we didn't stop it), show why."""
+        if proc.poll() is None:
+            if attempts > 0:
+                QTimer.singleShot(1000, lambda: self._watch_server_start(proc, attempts - 1))
+            return
+        if getattr(self, "_server_stop_requested", False):
+            return
+        tail = html.escape(log_tail(paths.SERVER_LOG))
+        QMessageBox.critical(
+            self,
+            "SPT Server stopped right after starting",
+            f"The server exited (code {proc.returncode}). Last lines of its output:<br><br>"
+            f"<pre>{tail or '(no output)'}</pre><br>"
+            f"Full log: <code>{paths.SERVER_LOG}</code><br>"
+            "A mod that fails to load is the usual cause. Disable the mod named in the error and start again.",
+        )
 
     def launch_spt(self):
         cfg = load_config()
@@ -424,11 +454,10 @@ class SPTModManagerWindow(QMainWindow):
     def closeEvent(self, event):
         """Stop background timers/threads so the process exits cleanly."""
         self.status_timer.stop()
-        for name in ("rss_thread", "update_thread"):
-            thread = getattr(self, name, None)
-            if thread and thread.isRunning():
-                thread.terminate()
-                thread.wait(3000)
+        rss_thread = getattr(self, "rss_thread", None)
+        if rss_thread and rss_thread.isRunning():
+            rss_thread.terminate()
+            rss_thread.wait(3000)
         event.accept()
 
     # installed_tab bindings
