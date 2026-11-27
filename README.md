@@ -113,6 +113,8 @@ chmod +x SPT_Stash-x86_64.AppImage
 ./SPT_Stash-x86_64.AppImage
 ```
 
+> Built on Ubuntu 22.04, so it needs **glibc 2.35 or newer** (Debian 12+, Ubuntu 22.04+, and most current distros).
+
 ### Option 2: Pre-compiled Standalone Linux Binary (`spt-stash`)
 Download the standalone executable `spt-stash` binary from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases) (no AppImage wrapper or Python environment required):
 
