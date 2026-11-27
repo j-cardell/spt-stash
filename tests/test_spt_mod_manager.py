@@ -26,9 +26,12 @@ from spt_stash.staging import links, metadata  # noqa: E402
 class TestSPTModManagerCore(unittest.TestCase):
 
     def test_package_version(self):
-        """Test package version string presence."""
+        """The package version must match pyproject.toml so the update check compares the right number."""
+        import re
+
         self.assertTrue(hasattr(spt_stash, "__version__"))
-        self.assertEqual(spt_stash.__version__, "1.2.0")
+        pyproject = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertEqual(spt_stash.__version__, re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1))
 
     def test_find_app_icon(self):
         """Test application icon resolution."""
@@ -262,6 +265,14 @@ class TestSPTModManagerCore(unittest.TestCase):
             self.assertEqual(normalize_windows_paths(out), 1)
             self.assertTrue((out / "BepInEx" / "plugins" / "Mod" / "Mod.dll").is_file())
             self.assertEqual([p.name for p in out.iterdir()], ["BepInEx"])
+
+    def test_newer_release(self):
+        from spt_stash.catalog.updates import newer_release
+
+        self.assertEqual(newer_release({"tag_name": "v1.3.0", "html_url": "u"}, "1.2.2"), ("v1.3.0", "u"))
+        self.assertIsNone(newer_release({"tag_name": "v1.2.2", "html_url": "u"}, "1.2.2"))
+        self.assertIsNone(newer_release({"tag_name": "v1.2.1"}, "1.2.2"))
+        self.assertIsNone(newer_release({}, "1.2.2"))
 
 
 if __name__ == "__main__":

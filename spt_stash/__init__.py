@@ -33,9 +33,7 @@ from .system.hardware import (
     detect_gpu_hardware,
     detect_installed_spt_version,
 )
-from .version import is_version_newer, parse_version_tuple
-
-__version__ = "1.2.0"
+from .version import __version__, is_version_newer, parse_version_tuple
 
 __all__ = [
     "__version__",

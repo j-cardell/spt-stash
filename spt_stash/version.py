@@ -3,6 +3,8 @@
 
 import re
 
+__version__ = "1.2.2"  # keep in sync with pyproject.toml
+
 
 def parse_version_tuple(ver_str):
     """Parse 'v1.8.0' / '2.2.3-beta' into an int tuple. Unparseable → (0, 0, 0)."""
