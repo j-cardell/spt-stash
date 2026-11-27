@@ -1,168 +1,159 @@
 # <img src="docs/spt_stash_icon.png" width="34" height="34" valign="middle" alt="SPT Stash"> SPT Stash
 
-> **Native Linux Mod Manager & Performance Suite for Single-Player Tarkov (SPT)**
+> **Native Linux mod manager and performance suite for Single-Player Tarkov (SPT)**
 
 [![CI & Security Audit](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/ci.yml)
 [![Build & Release AppImage](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml/badge.svg)](https://github.com/j-cardell/spt-stash/actions/workflows/appimage.yml)
-[![License: MIT](https://img.shields.org/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**SPT Stash** is a high-performance native Linux desktop application designed specifically for Single-Player Tarkov (SPT) on Linux and Steam Deck (SteamOS). It provides **in-tree relative symlink staging**, **official Greed.exe (SVM) integration with Proton selector**, **universal server launching with live IP/port tracking**, **Linux hardware & game launch performance tuning**, **non-blocking animated toast notifications**, and **1-click sp-mod.com Forge catalog browsing & updating**.
-
----
-
-## ✨ Core Features
-
-- **⚡ In-Tree Relative Symlink Staging**: Enable, disable, or swap client (`BepInEx/plugins`) and server (`user/mods`) mods in milliseconds with zero storage duplication using relative in-tree symlinks (`.staged/`).
-- **🗂️ Bulk Mod Actions Bar**: Select, enable, disable, or delete multiple mod packages simultaneously with real-time dynamic selection counters (`X of Y packages, Z component files`).
-- **🔄 1-Click Update Checker**: Automatically compares installed versions against the [sp-mod.com (The Forge)](https://sp-mod.com) catalog using Semantic Versioning (`is_version_newer`) with 1-click batch updating.
-- **🔍 Deep Dependency Auditor & Auto-Fix**: Automatically scans installed mods for missing or staged-disabled dependencies and provides an interactive 1-click auto-fix dialog.
-- **🛠️ Official Greed.exe (SVM) & Proton Selector**: Launch the official [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) configurator (`Greed.exe`) under your base game Wine prefix with an interactive Proton runner selector in **⚙️ Settings**.
-- **🌐 Universal Server Launcher & Live Badge**: Start and stop the SPT server across any Linux distribution with a 21-terminal discovery matrix, background logging fallback, and real-time status badge parsed directly from `http.json` (e.g. `🟢 Server: Running (127.0.0.1:6969)`).
-- **✨ Non-Blocking Animated Toast Notifications**: Smooth opacity fade-in / fade-out pill notifications for server operations, game launches, Greed.exe, and settings saves without blocking UI interaction.
-- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI optimizations**, and **CPU core isolation (`taskset`)** with 1-click `🤖 Auto-Detect` applied automatically every time you start the server or launch SPT (your launch scripts are never rewritten).
-- **🌐 Live Mod Catalog Browser**: Search, filter, and 1-click install mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with 5 sorting modes, target SPT version filtering, dependency resolution, and `.meta.json` sidecar stamping.
-- **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained interactive HTML manifests with embedded JSON data blocks.
-- **📦 Multi-File Mod Consolidation**: Bundles dual-component mods (Client + Server, e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
-- **🟢 Fika Co-Op Compatibility Badges**: Real-time compatibility tracking and badges (`🟢 Compatible`, `🔴 Incompatible`, `🟡 Unknown`) with background sync.
-- **🔗 Direct Author Profiles**: Click any mod author's name to open their official user profile page on `sp-mod.com`.
+**SPT Stash** is a desktop app for running Single-Player Tarkov on Linux and Steam Deck. It manages your mods with symlinks, browses and installs from the [sp-mod.com Forge](https://sp-mod.com), starts and stops the SPT server, launches the game, and applies Linux performance tuning when you do.
 
 ---
 
-## 🖼️ Application Showcase
+## Features
 
-### 1. Installed Mods Overview
-Manage client (`BepInEx/plugins`) and server (`user/mods`) mods with in-tree relative symlink staging (`.staged/`), interactive column sorting, Fika Co-Op compatibility badges, direct clickable author profile links (`https://sp-mod.com/user/<id>/<author>`), and a full right-click context menu. Flip any mod on or off with its toggle (a symlink is added or removed, nothing is copied or re-downloaded), use the **bulk actions** to enable, disable, or delete several at once, or run **`🔍 Audit Dependencies`** and **`🔄 Check for Updates`**.
+- **Symlink staging**: every mod lives once in `.staged/`. Enabling or disabling a mod adds or removes a relative symlink in `BepInEx/plugins` or `user/mods`, so it is instant and nothing is copied or re-downloaded.
+- **Picks up hand-installed mods**: mods you dropped into `BepInEx/plugins` or `user/mods` yourself are moved into the stash and linked back, so they show up and can be toggled like any other.
+- **Bulk actions**: select several mods and enable, disable, or delete them together.
+- **Update checker**: compares installed versions against the Forge catalog and can update everything in one go. Mods with no known version are offered the update.
+- **Dependency audit**: finds missing or disabled dependencies and offers to fix them.
+- **Forge browser**: search and filter the catalog (five sort modes, target SPT version), then install with automatic dependency handling. Downloads and installs show progress in a bar at the bottom of the window, and rate limits from the site are retried automatically.
+- **Presets**: save the set of enabled mods as a preset, apply it later (missing mods are downloaded for you), and export or import presets as HTML manifests.
+- **Local archive installer**: install a `.zip` or `.7z` you already have. Windows-style paths are handled.
+- **Server control**: start and stop the server from the sidebar, with a live status badge read from `http.json`. If the launcher or game is still open when you stop the server, you get a warning first.
+- **Performance tab**: MangoHud, FSR 4, DXVK async, NVIDIA options, GameMode, and CPU core pinning with `taskset`. The settings are applied every time you start the server or launch SPT. Your launch scripts are never rewritten.
+- **Greed.exe (SVM)**: run the official Server Value Modifier configurator under Proton or Wine, in a prefix you choose.
+- **Fika compatibility badges** and clickable author profile links.
+
+---
+
+## Screenshots
+
+### Installed mods
+Toggle mods on or off, filter by type or Fika status, run bulk actions, check for updates, and audit dependencies.
 
 ![Installed Mods Overview](docs/screenshots/installed_mods.png)
 
 ---
 
-### 2. Presets & Manifest Manager
-Create, save, and manage loadout presets with live state auto-syncing. Export interactive, self-contained HTML manifests to share your raid loadouts with friends or import manifests from others.
+### Presets
+Save, apply, export, and import loadouts. The detail view shows which mods in a preset are enabled or missing.
 
 ![Presets & Manifests](docs/screenshots/presets.png)
 
 ---
 
-### 3. Live Mod Catalog (sp-mod.com Forge)
-Browse, search, and 1-click install mods directly from **sp-mod.com (The Forge)** with disk/memory-cached thumbnails, 5 sorting modes (`Newest`, `Recently Updated`, `Most Downloaded`, `Most Favourited`, `Most Endorsed`), target SPT version filtering, dependency auto-detection, and metadata sidecar stamping.
+### Browse the Forge
+Search sp-mod.com, filter by category and SPT version, and install with dependencies resolved for you.
 
 ![Browse sp-mod.com Forge Catalog](docs/screenshots/browse_forge.png)
 
 ---
 
-### 4. Local Archive Installer
-Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically normalizes Windows path separators and places Client/Server components into your staging environment. Automatically handles root-level DLLs (e.g. `Unity.VectorGraphics.dll` for Dynamic Maps) and executables (e.g. `Greed.exe` for SVM).
+### Install a local archive
+Drop in or choose a `.zip` or `.7z`. Client and server components are detected and staged automatically, including root-level files such as `Unity.VectorGraphics.dll` or `Greed.exe`.
 
 ![Install Local Mod Archive](docs/screenshots/install_archive.png)
 
 ---
 
-### 5. Linux Performance & Game Launch Tuning
-Enable recommended Linux performance driver flags for your hardware with automatic GPU and CPU detection. Toggle **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI/threaded optimizations**, and **CPU core isolation (`taskset`)** with **`🤖 Auto-Detect`** applied automatically every time you start the server or launch SPT. Your launch scripts are never rewritten.
+### Performance
+GPU and CPU are detected automatically. Pick the tweaks you want, then save. They take effect the next time you start the server or launch SPT.
 
 ![Linux Performance & Launch Tuning](docs/screenshots/linux_performance.png)
 
 ---
 
-## ⚙️ Settings & Path Configuration Guide
+## Requirements
 
-Click **⚙️ Settings** at the top right of **SPT Stash** to configure your installation paths:
-
-| Setting | Plain-English Description | Example Path |
-| :--- | :--- | :--- |
-| **SPT Installation Folder** | Root folder where your Single-Player Tarkov installation lives. Must contain `server.sh`, `launcher.sh`, `BepInEx`, and `SPT_Runtime`. <br>⚠️ *Do **NOT** select your Wine/Proton Tarkov prefix directory.* | `~/Games/SPT` |
-| **Mod Staging Stash Directory** | In-tree directory where **SPT Stash** stores uncompressed mod files (`SPT_ROOT/.staged`). Mods stay safely stored here and are symlinked into your game when enabled. | `~/Games/SPT/.staged` |
-| **Start Server Script Path** | Path to `server.sh` (or `SPT.Server.exe`) used to launch the local SPT server. | `~/Games/SPT/server.sh` |
-| **Launch SPT Script Path** | Path to `launcher.sh` (or `SPT.Launcher.exe`) used to start the launcher and game. | `~/Games/SPT/launcher.sh` |
-| **Wine / Proton Prefix (optional)** | Existing prefix to run `Greed.exe` in (for example one that already has the .NET Desktop Runtime), or a folder where a new one is created. Leave blank to auto-detect. | `~/Games/SPT-Prefix` |
-| **Proton / Compatibility Runner** | Dropdown menu allowing you to choose which Proton/GE-Proton version or System Wine executes Windows tools. | `Auto-Detect (GE-Proton11-6)` |
-| **Launch Greed.exe (SVM)** | Button to launch official `Greed.exe` inside your base game installation under your SPT Wine Prefix (`~/Games/SPT-Prefix`). Prompts to auto-download SVM from Forge if missing. | *Action Button* |
-| **Create Desktop Shortcut** | Installs system application launcher and desktop shortcut with high-resolution 3D icon. | *Action Button* |
-
-> 💡 **Missing Script Alert**: If `server.sh` or `launcher.sh` are not found when launching, **SPT Stash** displays an alert dialog with a direct **`⚙️ Open Settings`** button to update your paths.
-
-### 🛠️ Official Greed.exe (SVM) Wine & Proton Integration
-
-Rather than requiring a clunky custom tab that risks corrupting SVM config schemas, **SPT Stash** integrates the official [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) configurator (`Greed.exe`) natively:
-
-- **Proton Version Selector**: Choose between Auto-Detect (newest GE-Proton), specific installed Proton builds (e.g. `GE-Proton11-6`), or system Wine in **⚙️ Settings**.
-- **In-Tree Execution**: Runs directly from your configured SPT root (`~/Games/SPT/Greed.exe`), ensuring 100% native compatibility with all your installed server mods in `user/mods/`.
-- **Smart Staging & Auto-Placement**: Automatically detects if `Greed.exe` was extracted into `.staged/`, copies the executable to SPT root, and symlinks `user/mods/ServerValueModifier` properly.
-- **Interactive Missing Prompt**: If SVM is not installed, clicking **🛠️ Launch Greed.exe (SVM)** in **⚙️ Settings** prompts to immediately navigate to the **Browse sp-mod.com (Forge)** tab with the search pre-filled for 1-click installation.
-
-### 📁 File Locations & System Data Storage
-
-| Component | System Location | Purpose / Description |
-| :--- | :--- | :--- |
-| **Config File** | `~/.config/spt-mod-manager/config.json` | Stores configured paths (`spt_path`, `staged_dir`, `server_script`, `launcher_script`, `proton_runner`). |
-| **Presets Directory** | `~/.config/spt-mod-manager/presets/` | Stores saved raid loadout preset `.json` files. |
-| **Mod Staging Stash** | `<SPT_ROOT>/.staged/` (`client/`, `server/`) | Local in-tree directory where downloaded mod archives are extracted for relative symlinking. |
-| **Catalog Cache** | `~/.cache/spt-mod-manager/catalog.json` | Offline cache of sp-mod.com Forge mod catalog metadata. |
-| **Image & Icon Cache** | `~/.cache/spt-mod-manager/images/` | Cached mod preview thumbnails and icons. |
-| **Downloads Cache** | `~/.cache/spt-mod-manager/downloads/` | Temporary cache for downloaded mod archives before extraction. |
+- Python 3.10+ and PySide6 if you run from source (the AppImage and binary bundle both).
+- The SPT 4.x server needs the **.NET 10 runtime and the ASP.NET Core 10 runtime** installed on the host. On Arch-based distros that is `dotnet-runtime-10.0` and `aspnet-runtime-10.0`.
+- `p7zip` (`7z`) to install `.7z` archives.
+- Optional, for the Performance tab: `mangohud`, `gamemode` (plus `lib32-gamemode` or your distro's 32-bit equivalent), and `taskset`.
+- Optional, for Greed.exe: `umu-launcher` and a Proton build such as GE-Proton, or Wine.
 
 ---
 
-## 🚀 Installation & Desktop Shortcut Setup
+## Settings
 
-### Option 1: Standalone AppImage (Recommended)
-Download the latest pre-compiled `SPT_Stash-x86_64.AppImage` from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases):
+Click **Settings** in the sidebar to configure paths:
+
+| Setting | Description | Example |
+| :--- | :--- | :--- |
+| **SPT Installation Folder** | Root of your SPT install, the folder containing `BepInEx` and `SPT_Runtime`. Do not pick your Wine/Proton prefix. | `~/Games/SPT` |
+| **Mod Staging Stash Directory** | Where SPT Stash keeps your mods. Enabled mods are symlinked from here into the game. | `~/Games/SPT/.staged` |
+| **Start Server Script Path** | The program or script that starts the SPT server. | `~/Games/SPT/SPT_Runtime/SPT.Server.Linux` |
+| **Launch SPT / Launcher Script Path** | The program or script that starts the SPT launcher. | `~/Games/SPT/SPT_Runtime/SPT.Launcher.Linux` |
+| **Wine / Proton Prefix** (optional) | An existing prefix to run `Greed.exe` in (for example one that already has the .NET Desktop Runtime), or a folder where a new one is created. Blank means auto-detect. | `~/Games/SPT-Prefix` |
+| **Proton / Compatibility Runner** | Which Proton or GE-Proton build, or system Wine, runs Windows tools. | `Auto-Detect (GE-Proton11-6)` |
+| **Launch Greed.exe (SVM)** | Starts `Greed.exe` from your SPT folder. The button shows "Launching..." while umu starts. If SVM is not installed it offers to open the Forge tab with the search filled in. | button |
+| **Create Desktop Shortcut** | Adds SPT Stash to your application menu. | button |
+
+If the server or launcher path doesn't exist when you click Start or Launch SPT, a warning tells you to fix it in Settings.
+
+### Greed.exe (SVM)
+
+SPT Stash runs the official [Server Value Modifier](https://sp-mod.com/mod/236/server-value-modifier-svm) configurator instead of reimplementing it:
+
+- It runs from your SPT folder, so it sees all your installed server mods.
+- If `Greed.exe` is in the staged SVM mod, it is copied to the SPT root and the mod is linked into `user/mods`.
+- Pick a specific Proton build, auto-detect the newest GE-Proton, or use system Wine. Point it at an existing prefix if you already have one set up.
+
+### Where things are stored
+
+| What | Location |
+| :--- | :--- |
+| Config | `~/.config/spt-mod-manager/config.json` |
+| Presets | `~/.config/spt-mod-manager/presets/` |
+| Mod stash | `<SPT folder>/.staged/` (`client/` and `server/`) |
+| Catalog cache | `~/.cache/spt-mod-manager/catalog.json` |
+| Image cache | `~/.cache/spt-mod-manager/images/` |
+| Download cache | `~/.cache/spt-mod-manager/downloads/` |
+
+---
+
+## Installation
+
+### AppImage (recommended)
+Download `SPT_Stash-x86_64.AppImage` from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases):
 
 ```bash
 chmod +x SPT_Stash-x86_64.AppImage
 ./SPT_Stash-x86_64.AppImage
 ```
 
-> Built on Ubuntu 22.04, so it needs **glibc 2.35 or newer** (Debian 12+, Ubuntu 22.04+, and most current distros).
+It is built on Ubuntu 22.04, so it needs **glibc 2.35 or newer** (Debian 12+, Ubuntu 22.04+, and most current distros).
 
-### Option 2: Pre-compiled Standalone Linux Binary (`spt-stash`)
-Download the standalone executable `spt-stash` binary from [GitHub Releases](https://github.com/j-cardell/spt-stash/releases) (no AppImage wrapper or Python environment required):
+### Standalone binary
+Releases also include a single `spt-stash` executable, with no AppImage wrapper and no Python needed:
 
 ```bash
 chmod +x spt-stash
 ./spt-stash
 ```
 
-### Option 3: Run from Source
-Requires Python 3.10+ and PySide6:
+### From source
 
 ```bash
-# Clone the repository
 git clone https://github.com/j-cardell/spt-stash.git
 cd spt-stash
-
-# Install PySide6
-pip install PySide6
-
-# Run SPT Stash
+pip install PySide6 certifi
 python3 spt_mod_manager.py
 ```
 
-### 📌 1-Click Desktop & Application Launcher Shortcut
-To add **SPT Stash** to your system application menu and desktop:
-
-```bash
-python3 install_desktop_shortcut.py
-```
-*(You can also click **📌 Create Desktop Shortcut** anytime inside the **⚙️ Settings** dialog).*
+### Desktop shortcut
+To add SPT Stash to your application menu, run `python3 install_desktop_shortcut.py`, or click **Create Desktop Shortcut** in Settings.
 
 ---
 
-## 🧪 Testing & Developer Tooling
-
-SPT Stash includes an automated test runner combining AST verification, a Ruff lint gate, and a headless Qt unit test suite:
+## Development
 
 ```bash
-# Run linting and unit test suite
-python3 run_tests.py
-
-# Or run Ruff linter directly
-ruff check spt_stash spt_mod_manager.py
+python3 run_tests.py   # lint plus headless unit tests
+ruff check             # linter only
 ```
 
 ---
 
-## 📄 License
-Distributed under the MIT License. See `LICENSE` for more information.
-
+## License
+MIT. See [LICENSE](LICENSE).
