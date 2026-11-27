@@ -28,6 +28,7 @@ from .. import paths
 from ..catalog.updates import AppUpdateChecker
 from ..config import load_config
 from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
+from ..staging.winpaths import create_backslash_aliases, find_backslash_failures
 from ..system.hardware import detect_installed_spt_version
 from ..system.process import (
     is_server_running,
@@ -398,15 +399,34 @@ class SPTModManagerWindow(QMainWindow):
             return
         if getattr(self, "_server_stop_requested", False):
             return
-        tail = html.escape(log_tail(paths.SERVER_LOG))
-        QMessageBox.critical(
-            self,
-            "SPT Server stopped right after starting",
+        log_text = log_tail(paths.SERVER_LOG, lines=400)
+        fixes = find_backslash_failures(log_text)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Critical)
+        box.setWindowTitle("SPT Server stopped right after starting")
+        text = (
             f"The server exited (code {proc.returncode}). Last lines of its output:<br><br>"
-            f"<pre>{tail or '(no output)'}</pre><br>"
+            f"<pre>{html.escape(log_tail(paths.SERVER_LOG))}</pre><br>"
             f"Full log: <code>{paths.SERVER_LOG}</code><br>"
-            "A mod that fails to load is the usual cause. Disable the mod named in the error and start again.",
         )
+        fix_btn = None
+        if fixes:
+            mods = ", ".join(sorted({d.name for d, _ in fixes}))
+            text += (
+                f"<br><b>{html.escape(mods)}</b> looks for its files with Windows-style paths (<code>folder\\file</code>), "
+                "which don't resolve on Linux. SPT Stash can add small compatibility links next to the mod's real "
+                "files so it finds them. Nothing in the mod is edited."
+            )
+            fix_btn = box.addButton("Add links and restart", QMessageBox.AcceptRole)
+        else:
+            text += "A mod that fails to load is the usual cause. Disable the mod named in the error and start again."
+        box.setText(text)
+        box.addButton("Close", QMessageBox.RejectRole)
+        box.exec()
+        if fix_btn is not None and box.clickedButton() is fix_btn:
+            made = sum(create_backslash_aliases(d, rest) for d, rest in fixes)
+            self.toast.success(f"Added {made} compatibility link(s), restarting server...")
+            self.toggle_server_control()
 
     def launch_spt(self):
         cfg = load_config()

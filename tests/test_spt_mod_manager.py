@@ -283,6 +283,23 @@ class TestSPTModManagerCore(unittest.TestCase):
             self.assertEqual(log_tail(f, 2), "b\nc")
             self.assertEqual(log_tail(Path(d) / "missing.log"), "")
 
+    def test_backslash_aliases(self):
+        from spt_stash.staging.winpaths import create_backslash_aliases, find_backslash_failures
+
+        with tempfile.TemporaryDirectory() as d:
+            mod = Path(d) / "Mod"
+            (mod / "database").mkdir(parents=True)
+            (mod / "database" / "a.json").write_text("A")
+            (mod / "database" / "b.json").write_text("B")
+            # Wrapped like rich does at 80 columns: newline in the middle of the path
+            log = f"Could not find file \n'{mod}/data\nbase\\a.json'.\n   at Interop.X"
+            fixes = find_backslash_failures(log)
+            self.assertEqual(fixes, [(mod, "database/a.json")])
+            self.assertEqual(create_backslash_aliases(mod, "database/a.json"), 2)
+            self.assertEqual((mod / "database\\b.json").read_text(), "B")
+            self.assertEqual(create_backslash_aliases(mod, "database/a.json"), 0)  # idempotent
+            self.assertEqual(find_backslash_failures("Could not find file '/nope/x\\y.json'"), [])
+
 
 if __name__ == "__main__":
     unittest.main()
