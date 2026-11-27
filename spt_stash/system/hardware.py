@@ -157,8 +157,10 @@ def get_available_proton_versions():
     return results
 
 
-def find_wine_prefix(spt_root=None):
-    """Auto-detect the Wine/Proton prefix directory for the SPT installation."""
+def find_wine_prefix(spt_root=None, override=None):
+    """Return the user-configured prefix if set, else auto-detect one for the SPT installation."""
+    if override and str(override).strip():
+        return Path(str(override).strip()).expanduser().resolve()
     root = Path(spt_root).resolve() if spt_root else find_spt_root().resolve()
 
     # 1. Sibling and child paths based on spt_root

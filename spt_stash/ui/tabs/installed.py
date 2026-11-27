@@ -27,11 +27,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ... import paths
 from ...catalog.dependencies import fetch_mod_dependencies_sync
 from ...catalog.matching import find_best_catalog_match_global, resolve_author_profile_url
 from ...catalog.workers import ModDetailFetcherThread
-from ...paths import CLIENT_MODS_DIR, SERVER_MODS_DIR, STAGED_CLIENT, STAGED_SERVER
-from ...staging.links import create_relative_symlink, purge_mod_files_and_symlinks, remove_path
+from ...staging.links import (
+    adopt_unmanaged_mods,
+    create_relative_symlink,
+    purge_mod_files_and_symlinks,
+    remove_path,
+)
 from ...staging.metadata import load_mod_meta, save_mod_meta
 from ...staging.workers import FikaSyncThread
 from ...version import is_version_newer
@@ -274,12 +279,20 @@ def _set_chip_filter(self, mode):
     self.filter_installed_mods(self.installed_search.text())
 
 
+def _guess_version(name):
+    """Best-effort version from a folder name like 'AmandsSense-3.1.0'; '' when none is present."""
+    m = re.search(r"(?<![\w.])v?(\d+(?:\.\d+)+)", name)
+    return m.group(1) if m else ""
+
+
 def load_installed_mods(self):
     self.table_mods.setRowCount(0)
+    adopt_unmanaged_mods(paths.STAGED_CLIENT, paths.CLIENT_MODS_DIR)
+    adopt_unmanaged_mods(paths.STAGED_SERVER, paths.SERVER_MODS_DIR)
     mods_map = {}
 
-    client_items = list(STAGED_CLIENT.iterdir()) if STAGED_CLIENT.exists() else []
-    server_items = list(STAGED_SERVER.iterdir()) if STAGED_SERVER.exists() else []
+    client_items = list(paths.STAGED_CLIENT.iterdir()) if paths.STAGED_CLIENT.exists() else []
+    server_items = list(paths.STAGED_SERVER.iterdir()) if paths.STAGED_SERVER.exists() else []
 
     def get_mod_group_key(item):
         meta = load_mod_meta(item) or {}
@@ -291,7 +304,8 @@ def load_installed_mods(self):
                 meta["title"] = official_title
                 meta["link"] = matched.get("link", meta.get("link", ""))
                 meta["author"] = matched.get("creator", meta.get("author", ""))
-                meta["version"] = matched.get("version", meta.get("version", "1.0.0"))
+                # Never stamp the catalog's *latest* version as installed — that hides real updates.
+                meta["version"] = meta.get("version") or _guess_version(item.name)
                 save_mod_meta(item, meta)
             return official_title.lower(), official_title
 
@@ -305,7 +319,7 @@ def load_installed_mods(self):
         if item.name.startswith("."):
             continue
         key, display_name = get_mod_group_key(item)
-        live_link = CLIENT_MODS_DIR / item.name
+        live_link = paths.CLIENT_MODS_DIR / item.name
         is_enabled = live_link.is_symlink() or live_link.exists()
 
         if key not in mods_map:
@@ -324,7 +338,7 @@ def load_installed_mods(self):
         if item.name.startswith("."):
             continue
         key, display_name = get_mod_group_key(item)
-        live_link = SERVER_MODS_DIR / item.name
+        live_link = paths.SERVER_MODS_DIR / item.name
         is_enabled = live_link.is_symlink() or live_link.exists()
 
         if key not in mods_map:
@@ -372,8 +386,8 @@ def load_installed_mods(self):
     self.all_installed_mods = mods
     self.filter_installed_mods(self.installed_search.text())
 
-    if hasattr(self, "remote_mods") and self.remote_mods and hasattr(self, "table_browse"):
-        self.render_browse_catalog(self.remote_mods)
+    if getattr(self, "remote_mods", None) and hasattr(self, "list_remote"):
+        self.filter_remote_mods()
 
     if hasattr(self, "list_presets") and self.list_presets.currentItem():
         self.on_preset_selected()
@@ -464,13 +478,9 @@ def render_installed_mods(self, mods):
             server_meta = load_mod_meta(mod["server_staged"]) or {}
             ver_str = server_meta.get("version")
         if not ver_str:
-            matched = find_best_catalog_match_global(mod["name"])
-            if matched:
-                ver_str = matched.get("version")
-        if not ver_str:
-            ver_str = "1.0.0"
+            ver_str = "unknown"
 
-        display_ver = f"v{ver_str}" if not str(ver_str).startswith("v") else str(ver_str)
+        display_ver = f"v{ver_str}" if str(ver_str)[:1].isdigit() else str(ver_str)
         item_ver = QTableWidgetItem(display_ver)
         item_ver.setForeground(QColor(TEXT_MUTED))
         item_ver.setTextAlignment(Qt.AlignCenter)
@@ -739,8 +749,7 @@ def _render_installed_detail_html(self, mod, matched, desc_html):
         if not author or author == "Community":
             author = matched.get("creator") or author
 
-    ver = meta.get("version") or (matched.get("version") if matched else "1.0.0")
-    ver = ver or "1.0.0"
+    ver = meta.get("version") or "unknown"
     spt_ver = meta.get("spt_version") or (matched.get("spt_version") if matched else "")
     cat = matched.get("category", "Other") if matched else "Other"
 
@@ -952,7 +961,7 @@ def check_installed_mod_updates(self, *args):
         meta = load_mod_meta(staged_p) if staged_p else {}
         matched = find_best_catalog_match_global(mod["name"])
 
-        curr_ver = meta.get("version") if meta else "1.0.0"
+        curr_ver = (meta.get("version") if meta else "") or "0"  # unknown version → offer the update
         latest_ver = matched.get("version") if matched else None
 
         if matched and latest_ver and is_version_newer(latest_ver, curr_ver):
@@ -1062,7 +1071,7 @@ def toggle_mod(self, mod):
                         for d in staged_disabled_deps:
                             dep_p = d["path"]
                             is_srv = "server" in str(dep_p).lower()
-                            link_p = (SERVER_MODS_DIR if is_srv else CLIENT_MODS_DIR) / dep_p.name
+                            link_p = (paths.SERVER_MODS_DIR if is_srv else paths.CLIENT_MODS_DIR) / dep_p.name
                             remove_path(link_p)
                             create_relative_symlink(dep_p, link_p)
 
@@ -1170,7 +1179,7 @@ def show_audit_issues_dialog(self, issues):
         for d in all_disabled_to_enable:
             dep_p = d["path"]
             is_srv = "server" in str(dep_p).lower()
-            link_p = (SERVER_MODS_DIR if is_srv else CLIENT_MODS_DIR) / dep_p.name
+            link_p = (paths.SERVER_MODS_DIR if is_srv else paths.CLIENT_MODS_DIR) / dep_p.name
             create_relative_symlink(dep_p, link_p)
 
         if all_missing_to_download:

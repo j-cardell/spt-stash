@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 from ..config import load_config
 from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
 from ..system.hardware import detect_installed_spt_version
-from ..system.process import is_server_running, stop_server
+from ..system.process import is_server_running, launch_spt_launcher, perf_launch_spec, running_client_apps, stop_server
 from .dialogs import SettingsDialog
 from .styles import get_app_stylesheet
 from .tabs import browse as browse_tab
@@ -33,7 +34,7 @@ from .tabs import installed as installed_tab
 from .tabs import installer as installer_tab
 from .tabs import performance as performance_tab
 from .tabs import presets as presets_tab
-from .theme import ACCENT, DANGER, SUCCESS, TEXT_MUTED, TOAST_BG, TOAST_BORDER, TOAST_TEXT
+from .theme import ACCENT, BG, BORDER, DANGER, SUCCESS, SURFACE_2, TEXT, TEXT_MUTED, TOAST_BG, TOAST_BORDER, TOAST_TEXT
 from .toast import ToastManager
 from .widgets import _nav_pixmap
 
@@ -179,6 +180,25 @@ class SPTModManagerWindow(QMainWindow):
         self.tabs = QStackedWidget()
         right_layout.addWidget(self.tabs)
 
+        # Global download strip: visible from every tab (presets/updates download while you're elsewhere).
+        self.dl_frame = QFrame()
+        self.dl_frame.setStyleSheet(f"QFrame {{ background: {SURFACE_2}; border-top: 1px solid {BORDER}; }}")
+        dl_layout = QHBoxLayout(self.dl_frame)
+        dl_layout.setContentsMargins(16, 6, 16, 6)
+        self.dl_label = QLabel("")
+        self.dl_label.setStyleSheet(f"color: {TEXT}; font-size: 12px; border: none;")
+        dl_layout.addWidget(self.dl_label, 1)
+        self.dl_bar = QProgressBar()
+        self.dl_bar.setRange(0, 100)
+        self.dl_bar.setFixedWidth(260)
+        self.dl_bar.setStyleSheet(
+            f"QProgressBar {{ background: {BG}; border: 1px solid {BORDER}; border-radius: 4px; "
+            f"text-align: center; color: {TEXT}; }} QProgressBar::chunk {{ background: {ACCENT}; border-radius: 3px; }}"
+        )
+        dl_layout.addWidget(self.dl_bar)
+        self.dl_frame.hide()
+        right_layout.addWidget(self.dl_frame)
+
         self.tab_installed = QWidget()
         self.tab_presets = QWidget()
         self.tab_browse = QWidget()
@@ -212,6 +232,19 @@ class SPTModManagerWindow(QMainWindow):
             btn.clicked.connect(lambda _checked, i=idx: self.tabs.setCurrentIndex(i))
 
     # ------------------ Process & Server Controls ------------------
+
+    def show_download_progress(self, label, percent=None):
+        """percent=None shows a busy (indeterminate) bar, used while archives are being extracted/staged."""
+        self.dl_label.setText(label)
+        if percent is None:
+            self.dl_bar.setRange(0, 0)
+        else:
+            self.dl_bar.setRange(0, 100)
+            self.dl_bar.setValue(max(0, min(100, int(percent))))
+        self.dl_frame.show()
+
+    def hide_download_progress(self):
+        self.dl_frame.hide()
 
     def check_server_status(self):
         running = is_server_running()
@@ -252,11 +285,37 @@ class SPTModManagerWindow(QMainWindow):
                 self.btn_server_control.style().unpolish(self.btn_server_control)
                 self.btn_server_control.style().polish(self.btn_server_control)
 
+    def _await_server_stop(self, attempts):
+        """Poll every 250ms until the server process is gone, then refresh the badge and confirm."""
+        self.check_server_status()
+        if not is_server_running():
+            self.toast.success("SPT Server stopped")
+        elif attempts > 0:
+            QTimer.singleShot(250, lambda: self._await_server_stop(attempts - 1))
+        else:
+            self.toast.error("Server did not stop in 10s")
+
     def toggle_server_control(self):
         if is_server_running():
+            open_apps = running_client_apps()
+            if open_apps:
+                box = QMessageBox(self)
+                box.setIcon(QMessageBox.Warning)
+                box.setWindowTitle("Close the Launcher First")
+                box.setText(
+                    f"<b>{' and '.join(open_apps)}</b> is still open and connected to the server.<br><br>"
+                    "Close it before stopping the server, otherwise the server can hang while shutting down "
+                    "and may have to be force-killed, which can lose unsaved profile progress."
+                )
+                box.addButton("Stop Anyway", QMessageBox.DestructiveRole)
+                cancel = box.addButton("Cancel", QMessageBox.RejectRole)
+                box.setDefaultButton(cancel)
+                box.exec()
+                if box.clickedButton() is cancel:
+                    return
             stop_server()
             self.toast.error(" Stopping SPT Server...")
-            QTimer.singleShot(500, self.check_server_status)
+            self._await_server_stop(attempts=40)
         else:
             cfg = load_config()
             spt_root = Path(cfg.get("spt_path", str(find_spt_root()))).resolve()
@@ -265,12 +324,14 @@ class SPTModManagerWindow(QMainWindow):
 
             env = os.environ.copy()
             env.pop("LD_LIBRARY_PATH", None)
+            pfx, extra_env = perf_launch_spec(cfg, "server")
+            env.update(extra_env)
 
             launched = False
             if server_script.exists():
                 try:
                     subprocess.Popen(
-                        [str(server_script)], cwd=str(server_script.parent), env=env, start_new_session=True
+                        [*pfx, str(server_script)], cwd=str(server_script.parent), env=env, start_new_session=True
                     )
                     launched = True
                 except Exception as e:
@@ -279,7 +340,7 @@ class SPTModManagerWindow(QMainWindow):
             if not launched and server_binary.exists():
                 try:
                     subprocess.Popen(
-                        [str(server_binary)], cwd=str(server_binary.parent), env=env, start_new_session=True
+                        [*pfx, str(server_binary)], cwd=str(server_binary.parent), env=env, start_new_session=True
                     )
                     launched = True
                 except Exception as e:
@@ -297,7 +358,8 @@ class SPTModManagerWindow(QMainWindow):
         spt_root = Path(cfg.get("spt_path", str(find_spt_root()))).resolve()
         launcher_script = Path(cfg.get("launcher_script", str(spt_root / "launcher.sh")))
         if launcher_script.exists():
-            subprocess.Popen([str(launcher_script)], cwd=str(launcher_script.parent))
+            pfx, env = perf_launch_spec(cfg, "client")
+            launch_spt_launcher(launcher_script, env_overrides=env, cmd_prefix=pfx)
             self.toast.success(f"Launching SPT via {launcher_script.name}...")
         else:
             self.show_missing_script_dialog("launcher.sh", launcher_script)
@@ -307,7 +369,8 @@ class SPTModManagerWindow(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             cfg = load_config()
             spt_root = Path(cfg["spt_path"]).resolve()
-            apply_spt_root(spt_root)
+            apply_spt_root(spt_root, cfg.get("staged_dir"))
+            ensure_dirs()
 
             self.installed_spt_ver = detect_installed_spt_version()
             self.load_installed_mods()
@@ -394,6 +457,7 @@ class SPTModManagerWindow(QMainWindow):
     on_dependency_downloaded = browse_tab.on_dependency_downloaded
     on_dependency_installed = browse_tab.on_dependency_installed
     on_mod_downloaded = browse_tab.on_mod_downloaded
+    on_remote_mod_installed = browse_tab.on_remote_mod_installed
     open_mod_in_browser = browse_tab.open_mod_in_browser
 
     # installer_tab bindings
@@ -415,8 +479,9 @@ def main():
     # High-DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
+    cfg = load_config()
+    apply_spt_root(cfg.get("spt_path") or find_spt_root(), cfg.get("staged_dir"))
     ensure_dirs()
-    apply_spt_root(find_spt_root())
 
     app = QApplication(sys.argv)
     app.setStyleSheet(get_app_stylesheet())

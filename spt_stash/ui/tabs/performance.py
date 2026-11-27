@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """SPT Stash — Linux Performance & Launch Tuning tab (V4 layout with custom ToggleSwitch)."""
 
-from pathlib import Path
-
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
@@ -18,7 +16,6 @@ from PySide6.QtWidgets import (
 )
 
 from ...config import load_config, save_config
-from ...paths import find_spt_root
 from ...system.hardware import (
     audit_system_dependencies,
     detect_cpu_core_allocation,
@@ -247,141 +244,13 @@ def save_and_apply_performance_settings(self):
     cfg["client_cpu_cores"] = self.txt_client_cores.text().strip() or "8-31"
     save_config(cfg)
 
-    spt_dir = Path(cfg.get("spt_path", str(find_spt_root())))
-    launcher_sh = Path(cfg.get("launcher_script", str(spt_dir / "launcher.sh")))
-    server_sh = Path(cfg.get("server_script", str(spt_dir / "server.sh")))
-
-    # Update launcher.sh
-    if launcher_sh.exists():
-        try:
-            mangohud_val = 1 if cfg["enable_mangohud"] else 0
-            fsr4_val = 1 if cfg["enable_fsr4"] else 0
-            dxvk_val = 1 if cfg["enable_dxvk_async"] else 0
-            cpu_val = 1 if cfg["enable_cpu_pinning"] else 0
-            nvidia_val = 1 if cfg["enable_nvidia_opts"] else 0
-            gamemode_val = 1 if cfg["enable_gamemode"] else 0
-            client_cores = cfg["client_cpu_cores"]
-
-            launcher_script_content = f"""#!/usr/bin/env bash
-
-# Clear library path pollution from parent processes
-unset LD_LIBRARY_PATH
-
-# Performance Optimizations Config
-ENABLE_CPU_PINNING={cpu_val}
-CLIENT_CPU_CORES="{client_cores}"
-ENABLE_DXVK_ASYNC={dxvk_val}
-ENABLE_FSR4={fsr4_val}
-ENABLE_MANGOHUD={mangohud_val}
-ENABLE_NVIDIA_OPTS={nvidia_val}
-ENABLE_GAMEMODE={gamemode_val}
-
-# Environment Exports
-if [ "$ENABLE_DXVK_ASYNC" -eq 1 ]; then export DXVK_ASYNC=1; fi
-if [ "$ENABLE_FSR4" -eq 1 ]; then export WINE_FULLSCREEN_FSR=1; fi
-if [ "$ENABLE_NVIDIA_OPTS" -eq 1 ]; then
-export PROTON_ENABLE_NVAPI=1
-export DXVK_ENABLE_NVAPI=1
-export __GL_THREADED_OPTIMIZATIONS=1
-fi
-
-MANGOHUD_CMD=""
-if [ "$ENABLE_MANGOHUD" -eq 1 ] && command -v mangohud &>/dev/null; then
-MANGOHUD_CMD="mangohud"
-fi
-
-TASKSET_CMD=""
-if [ "$ENABLE_CPU_PINNING" -eq 1 ] && command -v taskset &>/dev/null; then
-TASKSET_CMD="taskset -c $CLIENT_CPU_CORES"
-fi
-
-GAMEMODE_CMD=""
-if [ "$ENABLE_GAMEMODE" -eq 1 ] && command -v gamemoderun &>/dev/null; then
-GAMEMODE_CMD="gamemoderun"
-fi
-
-# We don't want to run as root
-if [[ "$( id -u )" -eq 0 ]]; then
-echo "This script is not supposed to be run as root!" >&2
-exit 1
-fi
-
-cwd="$(cd -- "$(dirname -- "${{BASH_SOURCE[0]}}")" && pwd)"
-cd "${{cwd}}/SPT_Runtime" && ${{MANGOHUD_CMD}} ${{TASKSET_CMD}} ${{GAMEMODE_CMD}} ./SPT.Launcher.Linux
-"""
-            launcher_sh.write_text(launcher_script_content, encoding="utf-8")
-            launcher_sh.chmod(0o755)
-        except Exception as e:
-            print(f"Error updating launcher.sh: {e}")
-
-    # Update server.sh
-    if server_sh.exists():
-        try:
-            cpu_val = 1 if cfg["enable_cpu_pinning"] else 0
-            server_cores = cfg["server_cpu_cores"]
-
-            server_script_content = f"""#!/usr/bin/env bash
-
-# Clear library path pollution from parent processes
-unset LD_LIBRARY_PATH
-
-# Server Performance Optimizations Config
-ENABLE_SERVER_CPU_PINNING={cpu_val}
-SERVER_CPU_CORES="{server_cores}"
-
-TASKSET_CMD=""
-if [ "$ENABLE_SERVER_CPU_PINNING" -eq 1 ] && command -v taskset &>/dev/null; then
-TASKSET_CMD="taskset -c $SERVER_CPU_CORES"
-fi
-
-# We don't want to run as root
-if [[ "$( id -u )" -eq 0 ]]; then
-echo "This script is not supposed to be run as root!" >&2
-exit 1
-fi
-
-ROOT_PATH="$( cd -- "$( dirname -- "${{BASH_SOURCE[0]}}" )" &>/dev/null && pwd )"
-
-# Universal Terminal Emulator Matrix (Distro-Agnostic)
-TERMINALS=(
-"xdg-terminal-exec" "x-terminal-emulator"
-"alacritty" "ghostty" "foot" "terminator" "ptyxis" "cosmic-terminal"
-"kgx" "konsole" "gnome-terminal" "xfce4-terminal" "kitty" "tilix"
-"wezterm" "lxterminal" "xterm" "urxvt" "rxvt" "st" "termite"
-)
-
-cd "${{ROOT_PATH}}/SPT_Runtime" || exit 1
-
-# If already in an interactive terminal, run directly
-if [ -t 0 ]; then
-exec ${{TASKSET_CMD}} ./SPT.Server.Linux
-exit 0
-fi
-
-# Try launching in an available GUI terminal emulator
-for term in "${{TERMINALS[@]}}"; do
-if command -v "$term" &>/dev/null; then
-    exec $term -e ${{TASKSET_CMD}} ./SPT.Server.Linux >&1
-    exit 0
-fi
-done
-
-# Fallback for headless / custom setups without GUI terminal emulators
-echo "No GUI terminal emulator found. Starting SPT Server in background..."
-exec ${{TASKSET_CMD}} ./SPT.Server.Linux > "${{ROOT_PATH}}/user/logs/server-direct.log" 2>&1 &
-"""
-            server_sh.write_text(server_script_content, encoding="utf-8")
-            server_sh.chmod(0o755)
-        except Exception as e:
-            print(f"Error updating server.sh: {e}")
-
     if hasattr(self, "toast"):
-        self.toast.success("Performance settings applied to launcher.sh & server.sh!")
+        self.toast.success("Performance settings saved. They apply the next time you start the server or launch SPT.")
     else:
         QMessageBox.information(
             self,
             "Performance Settings Applied",
-            "Performance tuning options have been saved and applied to launcher.sh and server.sh!",
+            "Performance tuning options have been saved. They apply the next time you start the server or launch SPT.",
         )
 
 

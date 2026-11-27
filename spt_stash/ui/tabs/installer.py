@@ -192,6 +192,7 @@ def start_local_install(self):
         return
     self.btn_install_archive.setEnabled(False)
     self.btn_install_archive.setText("Installing...")
+    self.show_download_progress(f"Installing {path.name}...")
     self.installer_thread = ModInstallerThread(path)
     self.installer_thread.finished.connect(self.on_mod_installed)
     self.installer_thread.start()
@@ -206,6 +207,7 @@ def open_file_installer(self):
 
 
 def on_mod_installed(self, success, message):
+    self.hide_download_progress()
     self.btn_install_archive.setText("Install")
     self.btn_install_archive.setEnabled(True)
     if success:

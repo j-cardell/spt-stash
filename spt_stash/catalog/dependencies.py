@@ -4,17 +4,18 @@
 import html
 import re
 
+from .. import paths
 from ..catalog.http import urlopen_with_certs
 from ..catalog.matching import (
     find_best_catalog_match_global,  # noqa: F401  (re-exported)
 )
-from ..paths import STAGED_DIR, find_spt_root
+from ..paths import find_spt_root
 
 
 def check_dep_status(dep_title):
     """Return (status, path) where status ∈ {ENABLED, STAGED_DISABLED, MISSING}."""
     spt_root = find_spt_root()
-    staged_dir = STAGED_DIR
+    staged_dir = paths.STAGED_DIR
 
     clean_title = re.sub(r"(\.dll|\.Server|ServerMod|Server|\.Client|Client)$", "", dep_title, flags=re.I).strip()
     target_alphanumeric = re.sub(r"[^a-z0-9]", "", clean_title.lower())
@@ -31,6 +32,8 @@ def check_dep_status(dep_title):
                 if p.name.startswith("."):
                     continue
                 p_clean = re.sub(r"[^a-z0-9]", "", p.name.lower())
+                if not p_clean or p.name.lower() == "spt":  # never match SPT's own core plugin folder
+                    continue
                 if target_alphanumeric and (target_alphanumeric in p_clean or p_clean in target_alphanumeric):
                     return "ENABLED", p
 

@@ -2,25 +2,22 @@
 """SPT Stash — background QThread workers for mod install, download, fika sync."""
 
 import logging
-import os
 import re
 import shutil
 import subprocess
-import urllib.request
+import time
+import urllib.error
 import zipfile
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
+from .. import paths
 from ..catalog.dependencies import fetch_mod_dependencies_sync
+from ..catalog.http import urlopen_with_certs
 from ..catalog.matching import find_best_catalog_match_global
-from ..paths import (
-    CLIENT_MODS_DIR,
-    DOWNLOADS_CACHE_DIR,
-    SERVER_MODS_DIR,
-    STAGED_CLIENT,
-    STAGED_SERVER,
-)
+from ..paths import DOWNLOADS_CACHE_DIR
+from .links import create_relative_symlink
 from .metadata import load_mod_meta, save_mod_meta
 
 logger = logging.getLogger(__name__)
@@ -120,16 +117,16 @@ class ModInstallerThread(QThread):
                         user_mods_src = p
 
             if bepin_src:
-                self._stage_items(bepin_src, STAGED_CLIENT, CLIENT_MODS_DIR, from_bepin=True)
+                self._stage_items(bepin_src, paths.STAGED_CLIENT, paths.CLIENT_MODS_DIR, from_bepin=True)
             if user_mods_src:
-                self._stage_items(user_mods_src, STAGED_SERVER, SERVER_MODS_DIR, temp_extract=temp_extract)
+                self._stage_items(user_mods_src, paths.STAGED_SERVER, paths.SERVER_MODS_DIR, temp_extract=temp_extract)
 
             if not bepin_src and not user_mods_src:
                 top_items = [p for p in temp_extract.iterdir() if not p.name.startswith(".")]
                 for item in top_items:
                     is_server = (item / "package.json").exists() if item.is_dir() else False
-                    target_staged_dir = STAGED_SERVER if is_server else STAGED_CLIENT
-                    target_live_dir = SERVER_MODS_DIR if is_server else CLIENT_MODS_DIR
+                    target_staged_dir = paths.STAGED_SERVER if is_server else paths.STAGED_CLIENT
+                    target_live_dir = paths.SERVER_MODS_DIR if is_server else paths.CLIENT_MODS_DIR
 
                     target_staged = target_staged_dir / item.name
                     if target_staged.exists():
@@ -139,13 +136,7 @@ class ModInstallerThread(QThread):
                             target_staged.unlink()
                     shutil.move(str(item), str(target_staged))
 
-                    link_path = target_live_dir / item.name
-                    if link_path.exists() or link_path.is_symlink():
-                        if link_path.is_dir() and not link_path.is_symlink():
-                            shutil.rmtree(link_path)
-                        else:
-                            link_path.unlink()
-                    os.symlink(str(target_staged), str(link_path))
+                    create_relative_symlink(target_staged, target_live_dir / item.name)
                     self._save_staged_metadata(target_staged)
 
             if temp_extract.exists():
@@ -202,13 +193,7 @@ class ModInstallerThread(QThread):
                     bak_path.rename(target_staged)
                 raise swap_err
 
-            link_path = live_dir / item.name
-            if link_path.exists() or link_path.is_symlink():
-                if link_path.is_dir() and not link_path.is_symlink():
-                    shutil.rmtree(link_path)
-                else:
-                    link_path.unlink()
-            os.symlink(str(target_staged), str(link_path))
+            create_relative_symlink(target_staged, live_dir / item.name)
             self._save_staged_metadata(target_staged)
 
 
@@ -254,8 +239,19 @@ class ModDownloaderThread(QThread):
     def run(self):
         try:
             self.progress.emit(10, "Connecting to download server...")
-            req = urllib.request.Request(self.download_url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
-            res = urllib.request.urlopen(req, timeout=15)
+            res = None
+            for attempt in range(4):
+                try:
+                    res = urlopen_with_certs(self.download_url, timeout=15)
+                    break
+                except urllib.error.HTTPError as e:
+                    if e.code not in (429, 503) or attempt == 3:
+                        raise
+                    # sp-mod.com rate-limits bursts (preset/dependency queues): honour Retry-After, else back off.
+                    retry_after = e.headers.get("Retry-After", "")
+                    wait = int(retry_after) if retry_after.isdigit() else 3 * 2**attempt
+                    self.progress.emit(10, f"Rate limited by sp-mod.com, retrying in {wait}s...")
+                    time.sleep(min(wait, 60))
 
             disposition = res.headers.get("Content-Disposition", "")
             filename = None
@@ -268,6 +264,7 @@ class ModDownloaderThread(QThread):
                 if not filename or filename == "download":
                     filename = f"{self.mod_title.replace(' ', '_')}.zip"
 
+            filename = Path(filename).name or f"{self.mod_title.replace(' ', '_')}.zip"  # strip any path components
             target_file = DOWNLOADS_CACHE_DIR / filename
 
             content_length = res.headers.get("Content-Length")

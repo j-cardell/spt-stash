@@ -222,6 +222,30 @@ class TestSPTModManagerCore(unittest.TestCase):
         win.toast.info("Testing headless toast")
         win.close()
 
+    def test_adopt_unmanaged_mods(self):
+        with tempfile.TemporaryDirectory() as d:
+            live, staged = Path(d) / "live", Path(d) / "staged"
+            (live / "ManualMod").mkdir(parents=True)
+            (live / "spt").mkdir()
+            self.assertEqual(links.adopt_unmanaged_mods(staged, live), 1)
+            self.assertTrue((staged / "ManualMod").is_dir())
+            self.assertTrue((live / "ManualMod").is_symlink())
+            self.assertFalse((live / "spt").is_symlink())
+            self.assertEqual(links.adopt_unmanaged_mods(staged, live), 0)
+
+    def test_apply_spt_root_is_seen_by_consumers(self):
+        from spt_stash.catalog import dependencies  # reads paths.STAGED_DIR at call time
+
+        old = (paths.STAGED_DIR, paths.CLIENT_MODS_DIR)
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                paths.apply_spt_root(Path(d), Path(d) / "custom_stash")
+                self.assertEqual(paths.STAGED_DIR, (Path(d) / "custom_stash").resolve())
+                self.assertEqual(paths.CLIENT_MODS_DIR, Path(d).resolve() / "BepInEx" / "plugins")
+                self.assertIs(dependencies.paths, paths)
+        finally:
+            paths.STAGED_DIR, paths.CLIENT_MODS_DIR = old
+
 
 if __name__ == "__main__":
     unittest.main()
