@@ -6,8 +6,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -23,10 +23,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..catalog.updates import AppUpdateCheckThread
 from ..config import load_config
 from ..paths import apply_spt_root, ensure_dirs, find_app_icon, find_spt_root
 from ..system.hardware import detect_installed_spt_version
 from ..system.process import is_server_running, launch_spt_launcher, perf_launch_spec, running_client_apps, stop_server
+from ..version import __version__
 from .dialogs import SettingsDialog
 from .styles import get_app_stylesheet
 from .tabs import browse as browse_tab
@@ -64,6 +66,21 @@ class SPTModManagerWindow(QMainWindow):
         self.status_timer = QTimer()
         self.status_timer.timeout.connect(self.check_server_status)
         self.status_timer.start(3000)
+
+        self._check_for_app_update()
+
+    def _check_for_app_update(self):
+        if not load_config().get("check_app_updates", True):  # opt out: set to false in config.json
+            return
+        self.update_thread = AppUpdateCheckThread(self)
+        self.update_thread.found.connect(self._on_app_update_found)
+        self.update_thread.start()
+
+    def _on_app_update_found(self, tag, url):
+        self.btn_update.setText(f"Update available: {tag}")
+        self.btn_update.setToolTip(f"You have v{__version__}. Click to open the {tag} release page.")
+        self.btn_update.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+        self.btn_update.show()
 
     def init_ui(self):
         main_widget = QWidget()
@@ -126,6 +143,14 @@ class SPTModManagerWindow(QMainWindow):
         _refresh_nav_icons()
 
         sidebar_layout.addStretch()
+
+        # Shown only when a newer release exists on GitHub (see _check_for_app_update)
+        self.btn_update = QPushButton("")
+        self.btn_update.setProperty("role", "ghost")
+        self.btn_update.setProperty("size", "sm")
+        self.btn_update.setStyleSheet(f"color: {SUCCESS};")
+        self.btn_update.hide()
+        sidebar_layout.addWidget(self.btn_update)
 
         # Server Control Panel at bottom of sidebar
         server_panel = QFrame()
@@ -399,10 +424,11 @@ class SPTModManagerWindow(QMainWindow):
     def closeEvent(self, event):
         """Stop background timers/threads so the process exits cleanly."""
         self.status_timer.stop()
-        rss_thread = getattr(self, "rss_thread", None)
-        if rss_thread and rss_thread.isRunning():
-            rss_thread.terminate()
-            rss_thread.wait(3000)
+        for name in ("rss_thread", "update_thread"):
+            thread = getattr(self, name, None)
+            if thread and thread.isRunning():
+                thread.terminate()
+                thread.wait(3000)
         event.accept()
 
     # installed_tab bindings

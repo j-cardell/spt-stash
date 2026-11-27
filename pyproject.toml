@@ -1,6 +1,6 @@
 [project]
 name = "spt-stash"
-version = "1.2.0"
+version = "1.2.2"
 description = "Native Linux Mod Manager & Performance Suite for Single-Player Tarkov (SPT)"
 readme = "README.md"
 requires-python = ">=3.10"

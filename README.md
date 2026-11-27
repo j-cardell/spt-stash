@@ -24,6 +24,7 @@
 - **Performance tab**: MangoHud, FSR 4, DXVK async, NVIDIA options, GameMode, and CPU core pinning with `taskset`. The settings are applied every time you start the server or launch SPT. Your launch scripts are never rewritten.
 - **Greed.exe (SVM)**: run the official Server Value Modifier configurator under Proton or Wine, in a prefix you choose.
 - **Fika compatibility badges** and clickable author profile links.
+- **Update notice**: on startup the app asks GitHub for the latest SPT Stash release. If it is newer than the one you're running, an "Update available" button appears in the sidebar and opens the release page. Nothing is downloaded or replaced automatically. To turn the check off, set `"check_app_updates": false` in `config.json`.
 
 ---
 
