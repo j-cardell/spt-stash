@@ -222,7 +222,7 @@ def setup_performance_tab(self):
     layout.addStretch()
 
     # Apply Button
-    btn_apply = QPushButton("Save && Apply to launcher.sh && server.sh")
+    btn_apply = QPushButton("Save && Apply (takes effect on next Start / Launch)")
     btn_apply.setIcon(QIcon(_nav_pixmap("performance", size=14, color=BG)))
     btn_apply.setIconSize(QSize(14, 14))
     btn_apply.setProperty("role", "primary")

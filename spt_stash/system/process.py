@@ -29,9 +29,9 @@ def perf_launch_spec(cfg, role):
     if cfg.get("enable_gamemode") and shutil.which("gamemoderun"):
         prefix.append("gamemoderun")
     if cfg.get("enable_dxvk_async"):
-        env["DXVK_ASYNC"] = "1"
+        env.update({"DXVK_ASYNC": "1", "RADV_PERFTEST": "gpl"})
     if cfg.get("enable_fsr4"):
-        env["WINE_FULLSCREEN_FSR"] = "1"
+        env["PROTON_FSR4_UPGRADE"] = "1"  # what the tab's description promises (Proton-GE)
     if cfg.get("enable_nvidia_opts"):
         env.update({"PROTON_ENABLE_NVAPI": "1", "DXVK_ENABLE_NVAPI": "1", "__GL_THREADED_OPTIMIZATIONS": "1"})
     return prefix, env

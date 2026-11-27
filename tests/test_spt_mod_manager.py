@@ -212,8 +212,9 @@ class TestSPTModManagerCore(unittest.TestCase):
     def test_main_window_init(self):
         """Test MainWindow and toast manager initialization in headless Qt."""
         from PySide6.QtWidgets import QApplication
+
         from spt_stash.ui.main_window import SPTModManagerWindow
-        app = QApplication.instance() or QApplication([])
+        self._app = QApplication.instance() or QApplication([])  # keep a reference so Qt does not tear it down
         win = SPTModManagerWindow()
         self.assertEqual(win.tabs.count(), 5)
         self.assertEqual(len(win.nav_buttons), 5)
@@ -245,6 +246,22 @@ class TestSPTModManagerCore(unittest.TestCase):
                 self.assertIs(dependencies.paths, paths)
         finally:
             paths.STAGED_DIR, paths.CLIENT_MODS_DIR = old
+
+    def test_normalize_windows_paths(self):
+        import zipfile
+
+        from spt_stash.staging.workers import normalize_windows_paths
+
+        with tempfile.TemporaryDirectory() as d:
+            zp, out = Path(d) / "m.zip", Path(d) / "out"
+            with zipfile.ZipFile(zp, "w") as z:
+                z.writestr("BepInEx\\plugins\\", "")
+                z.writestr("BepInEx\\plugins\\Mod\\Mod.dll", "x")
+            with zipfile.ZipFile(zp) as z:
+                z.extractall(out)
+            self.assertEqual(normalize_windows_paths(out), 1)
+            self.assertTrue((out / "BepInEx" / "plugins" / "Mod" / "Mod.dll").is_file())
+            self.assertEqual([p.name for p in out.iterdir()], ["BepInEx"])
 
 
 if __name__ == "__main__":

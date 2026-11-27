@@ -23,6 +23,24 @@ from .metadata import load_mod_meta, save_mod_meta
 logger = logging.getLogger(__name__)
 
 
+def normalize_windows_paths(root):
+    """Turn entries literally named 'BepInEx\\plugins\\X.dll' (zips built on Windows) into real folders.
+
+    Returns the number of files fixed. Empty directory markers ('A\\B\\') are dropped.
+    """
+    fixed = 0
+    for p in [q for q in Path(root).rglob("*") if "\\" in q.name]:
+        if p.name.endswith("\\"):  # directory marker the extractor wrote as a 0-byte file
+            if p.is_file() and p.stat().st_size == 0:
+                p.unlink()
+            continue
+        dest = p.parent / p.name.replace("\\", "/")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(p), str(dest))
+        fixed += 1
+    return fixed
+
+
 class ModInstallerThread(QThread):
     finished = Signal(bool, str)
 
@@ -89,6 +107,8 @@ class ModInstallerThread(QThread):
             else:
                 self.finished.emit(False, "Unsupported archive format.")
                 return
+
+            normalize_windows_paths(temp_extract)
 
             # Purge user-excluded files
             if self.excluded_files:
