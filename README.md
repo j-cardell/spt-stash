@@ -19,7 +19,7 @@
 - **🛠️ Official Greed.exe (SVM) & Proton Selector**: Launch the official [Server Value Modifier (SVM)](https://sp-mod.com/mod/236/server-value-modifier-svm) configurator (`Greed.exe`) under your base game Wine prefix with an interactive Proton runner selector in **⚙️ Settings**.
 - **🌐 Universal Server Launcher & Live Badge**: Start and stop the SPT server across any Linux distribution with a 21-terminal discovery matrix, background logging fallback, and real-time status badge parsed directly from `http.json` (e.g. `🟢 Server: Running (127.0.0.1:6969)`).
 - **✨ Non-Blocking Animated Toast Notifications**: Smooth opacity fade-in / fade-out pill notifications for server operations, game launches, Greed.exe, and settings saves without blocking UI interaction.
-- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI optimizations**, and **CPU core isolation (`taskset`)** with 1-click `🤖 Auto-Detect` and script auto-generation for `launcher.sh` and `server.sh`.
+- **⚡ Linux Performance & Tuning Suite**: Dedicated tab for configuring **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI optimizations**, and **CPU core isolation (`taskset`)** with 1-click `🤖 Auto-Detect` applied automatically every time you start the server or launch SPT (your launch scripts are never rewritten).
 - **🌐 Live Mod Catalog Browser**: Search, filter, and 1-click install mods directly from [sp-mod.com (The Forge)](https://sp-mod.com) with 5 sorting modes, target SPT version filtering, dependency resolution, and `.meta.json` sidecar stamping.
 - **🎒 Presets & Loadout Manifests**: Save, load, and export loadout presets as self-contained interactive HTML manifests with embedded JSON data blocks.
 - **📦 Multi-File Mod Consolidation**: Bundles dual-component mods (Client + Server, e.g. `UI Fixes`, `SAIN`, `Fika`) into clean single-row packages.
@@ -31,7 +31,7 @@
 ## 🖼️ Application Showcase
 
 ### 1. Installed Mods Overview
-Manage client (`BepInEx/plugins`) and server (`user/mods`) mods with in-tree relative symlink staging (`.staged/`), interactive column sorting, Fika Co-Op compatibility badges, direct clickable author profile links (`https://sp-mod.com/user/<id>/<author>`), and a full right-click context menu. Use the **Bulk Actions Bar** to enable, disable, or delete multiple mods at once, or run **`🔍 Audit Dependencies`** and **`🔄 Check for Updates`**.
+Manage client (`BepInEx/plugins`) and server (`user/mods`) mods with in-tree relative symlink staging (`.staged/`), interactive column sorting, Fika Co-Op compatibility badges, direct clickable author profile links (`https://sp-mod.com/user/<id>/<author>`), and a full right-click context menu. Flip any mod on or off with its toggle (a symlink is added or removed, nothing is copied or re-downloaded), use the **bulk actions** to enable, disable, or delete several at once, or run **`🔍 Audit Dependencies`** and **`🔄 Check for Updates`**.
 
 ![Installed Mods Overview](docs/screenshots/installed_mods.png)
 
@@ -59,7 +59,7 @@ Drag-and-drop or select any local `.zip` or `.7z` mod archive. Automatically nor
 ---
 
 ### 5. Linux Performance & Game Launch Tuning
-Enable recommended Linux performance driver flags for your hardware with automatic GPU and CPU detection. Toggle **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI/threaded optimizations**, and **CPU core isolation (`taskset`)** with **`🤖 Auto-Detect`** and 1-click script auto-generation for `launcher.sh` and `server.sh`.
+Enable recommended Linux performance driver flags for your hardware with automatic GPU and CPU detection. Toggle **MangoHud overlays**, **AMD FSR 4 upscaling**, **DXVK Async shader compilation**, **Feral GameMode**, **NVIDIA NVAPI/threaded optimizations**, and **CPU core isolation (`taskset`)** with **`🤖 Auto-Detect`** applied automatically every time you start the server or launch SPT. Your launch scripts are never rewritten.
 
 ![Linux Performance & Launch Tuning](docs/screenshots/linux_performance.png)
 
@@ -75,6 +75,7 @@ Click **⚙️ Settings** at the top right of **SPT Stash** to configure your in
 | **Mod Staging Stash Directory** | In-tree directory where **SPT Stash** stores uncompressed mod files (`SPT_ROOT/.staged`). Mods stay safely stored here and are symlinked into your game when enabled. | `~/Games/SPT/.staged` |
 | **Start Server Script Path** | Path to `server.sh` (or `SPT.Server.exe`) used to launch the local SPT server. | `~/Games/SPT/server.sh` |
 | **Launch SPT Script Path** | Path to `launcher.sh` (or `SPT.Launcher.exe`) used to start the launcher and game. | `~/Games/SPT/launcher.sh` |
+| **Wine / Proton Prefix (optional)** | Existing prefix to run `Greed.exe` in (for example one that already has the .NET Desktop Runtime), or a folder where a new one is created. Leave blank to auto-detect. | `~/Games/SPT-Prefix` |
 | **Proton / Compatibility Runner** | Dropdown menu allowing you to choose which Proton/GE-Proton version or System Wine executes Windows tools. | `Auto-Detect (GE-Proton11-6)` |
 | **Launch Greed.exe (SVM)** | Button to launch official `Greed.exe` inside your base game installation under your SPT Wine Prefix (`~/Games/SPT-Prefix`). Prompts to auto-download SVM from Forge if missing. | *Action Button* |
 | **Create Desktop Shortcut** | Installs system application launcher and desktop shortcut with high-resolution 3D icon. | *Action Button* |
